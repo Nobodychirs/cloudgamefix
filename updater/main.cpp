@@ -56,8 +56,6 @@ int main(int argc,CHAR** argv)
 		if (!fs::exists(filename))
 		{
 			object.info("开始下载文件：{}",filename);
-			
-			
 			break;
 		}
 		auto sha1 = getFileSha1(i["name"].GetString());
