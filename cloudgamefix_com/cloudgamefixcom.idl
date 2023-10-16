@@ -1,0 +1,69 @@
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	object,
+	uuid(fdf81ac2-b82f-4a86-b301-35bd3369a4bf),
+	dual,
+	nonextensible,
+	pointer_default(unique)
+]
+interface IcgFix : IDispatch
+{
+	[id(1),helpstring("修复网易云游戏系统")] HRESULT fixSystem([in] int mode);
+	[id(2),helpstring("修复网易云注册表部分项")] HRESULT fixFile([in] int mode);
+};
+[
+	object,
+	uuid(3563176a-4ff6-4571-a486-1acfad2069ea),
+	dual,
+	nonextensible,
+	pointer_default(unique)
+]
+interface IcgTool : IDispatch
+{
+};
+[
+	object,
+	uuid(3daa0403-1d46-44d2-95b4-46881bc7c4aa),
+	dual,
+	nonextensible,
+	pointer_default(unique)
+]
+interface IcgSystem : IDispatch
+{
+};
+[
+	uuid(c55af5fa-a083-4f62-bc44-074585b095ef),
+	version(1.0),
+]
+library cloudgamefixcomLib
+{
+	importlib("stdole2.tlb");
+	[
+		uuid(9727503a-899b-452a-b32a-6592a5eafb30)
+	]
+	coclass cgFix
+	{
+		[default] interface IcgFix;
+	};
+	[
+		uuid(81e7ab00-240d-4222-afb1-d346e59edd5f)
+	]
+	coclass cgTool
+	{
+		[default] interface IcgTool;
+	};
+	[
+		uuid(860971a4-8453-4132-bda6-01813abf7381)
+	]
+	coclass cgSystem
+	{
+		[default] interface IcgSystem;
+	};
+};
+
+import "shobjidl.idl";
+import "shobjidl.idl";
+import "shobjidl.idl";
+import "shobjidl.idl";

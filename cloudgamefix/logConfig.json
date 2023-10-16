@@ -1,0 +1,28 @@
+{
+    "logFormatTime": "[%Ec %A]",
+    "outToTerminal": {
+        "Enable": true,
+        "render": true,
+        "showUser": true,
+        "rootLogger": {
+            "level": "Info",
+            "ostream": "std::clog",
+            "wostream": "std::wclog",
+            "cleanBuffer": {
+                "clean": true,
+                "times": 10
+            }
+        }
+    },
+    "logToFile": {
+        "Enable": true,
+        "Dictionary": "${APPDATA}\\cloudgamefixZero\\logs",
+        "File": {
+            "format": true,
+            "TimeFormat": "[%Y %m %d]",
+            "filename": "${format}CloudGameFixZero.log"
+        },
+        "append": false
+    },
+    "EnableThreadSecurity": true
+}
