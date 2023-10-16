@@ -4538,7 +4538,6 @@ namespace cloudgameZero
 				{
 					try
 					{
-						std::string find = this->_root["outToTerminal"]["rootLogger"]["level"].GetString();
 						static const std::map<std::string, int> levels = {
 							{"Trace",1},
 							{"Debug",2},
@@ -4547,7 +4546,9 @@ namespace cloudgameZero
 							{"Error",5},
 							{"Fatal",6}
 						};
+						std::string find = this->_root["outToTerminal"]["rootLogger"]["level"].GetString();
 						auto itr = levels.find(find);
+						assert(itr != levels.end());
 						return itr->second;
 					}
 					catch (...)
