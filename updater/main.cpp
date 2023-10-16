@@ -31,9 +31,13 @@ void download(rapidjson::Document& Dom,cloudgameZero::Foundation::zeroLog& objec
 
 int main(int argc,CHAR** argv)
 {
+	std::cout << "准备cloudgamefix客户端文件..." << "\n";
 	std::cout << "开始获取文件清单..." << "\n";
-
-
+	std::cout << "准备curl中..." << "\n";
+	Experiment::Curl curl;
+	curl.setUrl("");
+	curl.getJsonDomByRequest(Experiment::Curl::operation::GET);
+	
 	std::cout << "设置日志对象中..." << "\n";	
 	if (!fs::exists(Dict))
 	{
@@ -48,7 +52,6 @@ int main(int argc,CHAR** argv)
 		});
 	std::cout << "日志信息将存储到 -> {}目录中.log后缀名的文件中"_zF(path, file) << "\n";
 	/* 在此，我们初始化了应用程序的基础目录，接下来，我们需要下载DLL库文件，程序主文件，配置环境变量等 */
-	Experiment::Curl curl;
 	std::ifstream in("manifest_conf.json",std::ios::in);
 	if (!in.is_open())
 	{

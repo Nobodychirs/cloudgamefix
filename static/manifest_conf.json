@@ -1,0 +1,21 @@
+{
+  "repo": "https://gitee.com/eGlhb2p1emk/cloudgamefix/raw/develop/static/",
+  "files": [
+    {
+      "name": "zlib1.dll",
+      "check": {
+        "sha1": "cdf4c9ce1dab7bfaa53dbddcae3e5203342f72b7",
+        "size": 89600
+      },
+      "remark": "Used to download files remotely"
+    },
+    {
+      "name": "libcurl.dll",
+      "check": {
+        "sha1": "4befd28521231b0acf1b7cfff508e28f39abed78",
+        "size": 517632
+      },
+      "remark": "curl file"
+    }
+  ]
+}
