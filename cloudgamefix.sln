@@ -5,12 +5,6 @@ VisualStudioVersion = 17.7.34009.444
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cloudgamefix", "cloudgamefix\cloudgamefix.vcxproj", "{A99D9271-D385-48B8-BD84-F75F2ED956C5}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cloudgamefix_realease", "cloudgamefix_realease\cloudgamefix_realease.vcxproj", "{A6609054-C444-47A2-91AD-D2CB53189AC1}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cloudgamefix_build", "cloudgamefix_build\cloudgamefix_build.vcxproj", "{8924BDD1-9BD2-445C-8671-8577729B3FD3}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cloudgamefix_com", "cloudgamefix_com\cloudgamefix_com.vcxproj", "{917D266D-D04B-49B7-9A39-728531DE5AEA}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "updater", "updater\updater.vcxproj", "{1AC5E2DF-C09E-4575-BC2D-18DAEB6EB3C7}"
 EndProject
 Global
@@ -29,30 +23,6 @@ Global
 		{A99D9271-D385-48B8-BD84-F75F2ED956C5}.Release|x64.Build.0 = Release|x64
 		{A99D9271-D385-48B8-BD84-F75F2ED956C5}.Release|x86.ActiveCfg = Release|Win32
 		{A99D9271-D385-48B8-BD84-F75F2ED956C5}.Release|x86.Build.0 = Release|Win32
-		{A6609054-C444-47A2-91AD-D2CB53189AC1}.Debug|x64.ActiveCfg = Debug|x64
-		{A6609054-C444-47A2-91AD-D2CB53189AC1}.Debug|x64.Build.0 = Debug|x64
-		{A6609054-C444-47A2-91AD-D2CB53189AC1}.Debug|x86.ActiveCfg = Debug|Win32
-		{A6609054-C444-47A2-91AD-D2CB53189AC1}.Debug|x86.Build.0 = Debug|Win32
-		{A6609054-C444-47A2-91AD-D2CB53189AC1}.Release|x64.ActiveCfg = Release|x64
-		{A6609054-C444-47A2-91AD-D2CB53189AC1}.Release|x64.Build.0 = Release|x64
-		{A6609054-C444-47A2-91AD-D2CB53189AC1}.Release|x86.ActiveCfg = Release|Win32
-		{A6609054-C444-47A2-91AD-D2CB53189AC1}.Release|x86.Build.0 = Release|Win32
-		{8924BDD1-9BD2-445C-8671-8577729B3FD3}.Debug|x64.ActiveCfg = Debug|x64
-		{8924BDD1-9BD2-445C-8671-8577729B3FD3}.Debug|x64.Build.0 = Debug|x64
-		{8924BDD1-9BD2-445C-8671-8577729B3FD3}.Debug|x86.ActiveCfg = Debug|Win32
-		{8924BDD1-9BD2-445C-8671-8577729B3FD3}.Debug|x86.Build.0 = Debug|Win32
-		{8924BDD1-9BD2-445C-8671-8577729B3FD3}.Release|x64.ActiveCfg = Release|x64
-		{8924BDD1-9BD2-445C-8671-8577729B3FD3}.Release|x64.Build.0 = Release|x64
-		{8924BDD1-9BD2-445C-8671-8577729B3FD3}.Release|x86.ActiveCfg = Release|Win32
-		{8924BDD1-9BD2-445C-8671-8577729B3FD3}.Release|x86.Build.0 = Release|Win32
-		{917D266D-D04B-49B7-9A39-728531DE5AEA}.Debug|x64.ActiveCfg = Debug|x64
-		{917D266D-D04B-49B7-9A39-728531DE5AEA}.Debug|x64.Build.0 = Debug|x64
-		{917D266D-D04B-49B7-9A39-728531DE5AEA}.Debug|x86.ActiveCfg = Debug|Win32
-		{917D266D-D04B-49B7-9A39-728531DE5AEA}.Debug|x86.Build.0 = Debug|Win32
-		{917D266D-D04B-49B7-9A39-728531DE5AEA}.Release|x64.ActiveCfg = Release|x64
-		{917D266D-D04B-49B7-9A39-728531DE5AEA}.Release|x64.Build.0 = Release|x64
-		{917D266D-D04B-49B7-9A39-728531DE5AEA}.Release|x86.ActiveCfg = Release|Win32
-		{917D266D-D04B-49B7-9A39-728531DE5AEA}.Release|x86.Build.0 = Release|Win32
 		{1AC5E2DF-C09E-4575-BC2D-18DAEB6EB3C7}.Debug|x64.ActiveCfg = Debug|x64
 		{1AC5E2DF-C09E-4575-BC2D-18DAEB6EB3C7}.Debug|x64.Build.0 = Debug|x64
 		{1AC5E2DF-C09E-4575-BC2D-18DAEB6EB3C7}.Debug|x86.ActiveCfg = Debug|Win32

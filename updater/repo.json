@@ -1,0 +1,26 @@
+{
+  "manifest": [
+    {
+      "name": "Õ¯“◊‘∆“Ù¿÷",
+      "id": "netease_cloud_music",
+      "url": "https://music.163.com",
+      "Save": "${DEFAULT}\\${ID}.exe",
+      "install": [
+        {
+          "command": "${PATH}\\${ID}.exe"
+        }
+      ]
+    },
+    {
+      "name": "steam",
+      "id": "steam",
+      "url": "https://music.163.com",
+      "Save": "${DEFAULT}\\${ID}.exe",
+      "install": [
+        {
+          "command": "${PATH}\\${ID}.exe"
+        }
+      ]
+    }
+  ]
+}

@@ -31,5 +31,9 @@
     <None Include="logConfig.json">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="version.ini">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="repo.json" />
   </ItemGroup>
 </Project>

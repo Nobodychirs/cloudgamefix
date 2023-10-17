@@ -83,60 +83,6 @@ int showMenu()
 	return 0;
 }
 
-void truested(std::wstring command)
-{
-	HANDLE hToken;
-	LUID Luid;
-	TOKEN_PRIVILEGES tp;
-	OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken);
-	LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &Luid);
-	tp.PrivilegeCount = 1;
-	tp.Privileges[0].Luid = Luid;
-	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-	AdjustTokenPrivileges(hToken, false, &tp, sizeof(tp), NULL, NULL);
-	CloseHandle(hToken);
-	DWORD idL{}, idW{};
-	PROCESSENTRY32 pe{};
-	pe.dwSize = sizeof(PROCESSENTRY32);
-	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (Process32First(hSnapshot, &pe))
-	{
-		do {
-			if (!wcscmp(pe.szExeFile, L"lsass.exe")) 
-			{
-				idL = pe.th32ProcessID;
-			}
-			else if (!wcscmp(pe.szExeFile, L"winlogon.exe")) 
-			{
-				idW = pe.th32ProcessID;
-			}
-		} while (Process32Next(hSnapshot, &pe));
-	}
-	CloseHandle(hSnapshot);
-	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, idL);
-	if (!hProcess) 
-	{
-		hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, idW);
-	}
-	HANDLE hTokenx;
-	OpenProcessToken(hProcess, TOKEN_DUPLICATE, &hTokenx);
-	DuplicateTokenEx(hTokenx, MAXIMUM_ALLOWED, NULL, SecurityIdentification, TokenPrimary, &hToken);
-	CloseHandle(hProcess);
-	CloseHandle(hTokenx);
-	STARTUPINFOW si;
-	PROCESS_INFORMATION pi;
-	ZeroMemory(&si, sizeof(STARTUPINFOW));
-	si.cb = sizeof(STARTUPINFOW);
-	std::wstring view = L"winsta0\\default";
-	si.lpDesktop = &view[0];
-	BOOL ret = CreateProcessWithTokenW(hToken, LOGON_NETCREDENTIALS_ONLY, NULL, &command[0], NORMAL_PRIORITY_CLASS, NULL, NULL, &si, &pi);
-	if (ret)
-	{
-		int a{};
-	}
-	CloseHandle(hToken);
-}
-
 namespace window
 {
 	class Window
@@ -340,7 +286,7 @@ int main(int argc, CHAR** argv)
 	//reg->addValue("", "TestBinaryVar", REG_BINARY, (const char*)&Hook, sizeof(WindowsHookA));
 	//std::cout << reg->native_handle() << "\n";
 	sectionBuffer collect;
-	iniParser parser("write.ini", collect);
+	iniParser parser("version.ini", collect);
 	//change(1600, 1200);
 	parser.parse();
 	parser.writer(parser.pretty);

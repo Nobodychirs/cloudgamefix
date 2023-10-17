@@ -8083,10 +8083,10 @@ namespace cloudgameZero
 
 	namespace Experiment
 	{
-		static std::list<std::string> makeArgumentsView(int argc, CHAR** argv)
+		static std::vector<std::string> makeArgumentsView(int argc, CHAR** argv)
 		{
 			std::span<char*> span(argv, argc);
-			std::list<std::string> vector = std::list<std::string>(argc);
+			std::vector<std::string> vector = std::vector<std::string>(argc);
 			int i = 0;
 			for (auto& itr : span) 
 			{
@@ -8236,12 +8236,15 @@ namespace cloudgameZero
 				this->_operater = __operater;
 			}
 
-			rapidjson::Document getJsonDomByRequest(operation method)
+			_NODISCARD rapidjson::Document getJsonDomByRequest(operation method)
 			{
-				std::unique_lock<std::mutex> lock(mtx);
 				std::string data = sendRequest(method);
 				rapidjson::Document Dom;
 				Dom.Parse(data.c_str());
+				if (Dom.HasParseError())
+				{
+					LibError(std::runtime_error("无法解析DOM!"));
+				}
 				return Dom;
 			}
 
@@ -8268,13 +8271,11 @@ namespace cloudgameZero
 					curl_easy_setopt(Handle, CURLOPT_POST, true);
 					std::string post = cloudgameZero::Foundation::Tool::gbkToUtf8(postfileds);
 					curl_easy_setopt(Handle, CURLOPT_POSTFIELDS, post);
-					CURLcode code = curl_easy_perform(Handle);
-					if (code != CURLE_OK)
-					{
-						return std::string();
-					}
-					response = cloudgameZero::Foundation::Tool::function::utf8ToGbk(response);
 				}
+				curl_easy_setopt(Handle, CURLOPT_CONNECTTIMEOUT, 30);
+				curl_easy_setopt(Handle, CURLOPT_TIMEOUT, 30);
+				curl_easy_perform(Handle);
+				response = cloudgameZero::Foundation::Tool::function::utf8ToGbk(response);
 				return response;
 			}
 
