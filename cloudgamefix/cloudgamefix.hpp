@@ -137,6 +137,10 @@ static_assert(__Has_reached_cpp20_standard_cg, "You Must Using C++20 Standard To
 
 /* 编译检查域结束 */
 
+#if __Has_reached_cpp20_standard_cg
+#define MakeCloudgameInterface(X) struct __declspec(uuid(X)) __declspec(novtable)
+#endif
+
 /* 开始构建命名空间框架 */
 namespace cloudgameZero
 {
@@ -258,6 +262,7 @@ namespace cloudgameZero
 #include <conio.h>
 #include <sstream>
 #include <roapi.h>
+#include <variant>
 #include <fstream>
 #include <Psapi.h>
 #include <atlstr.h>
@@ -6240,6 +6245,14 @@ namespace cloudgameZero
 			virtual void changeTheme(IN Theme theme) = 0;
 		};
 
+
+		MakeCloudgameInterface("B3560A33-4427-4BD4-BA76-808C6FAA2442")
+		repo
+		{
+		public:
+			virtual int setRepoFilestream() = 0;
+		};
+
 		HRESULT createInstance(const GUID iid, void** ppv);
 
 		/* 存储内部接口的声明 */
@@ -8361,8 +8374,315 @@ namespace cloudgameZero
 			std::string postfileds{};
 			std::mutex mtx;
 		};
-	}
 
+		namespace json
+		{
+			class JObject;
+
+			enum Type
+			{
+				J_null,
+				J_boolean,
+				J_int,
+				J_double,
+				J_string,
+				J_list,
+				J_dict
+			};
+
+			using null_t = char*;
+			using int_t = int32_t;
+			using bool_t = bool;
+			using double_t = double;
+			using string_t = std::basic_string<char>;
+			using list_t = std::vector<JObject>;
+			using dict_t = std::map<char*, JObject>;
+
+			template<typename ty1, typename ty2>
+			using IS_TYPE = std::is_same_v<ty1, ty2>;
+
+			template<class T>
+			constexpr bool is_basic_type()
+			{
+				if constexpr (
+					IS_TYPE(T, string_t) ||
+					IS_TYPE(T, bool_t) ||
+					IS_TYPE(T, double_t) ||
+					IS_TYPE(T, int_t)
+				)
+				{
+					return true;
+				}
+				return false;
+			}
+
+
+
+			class JObject
+			{
+			public:
+				using value_t = std::variant<bool_t,int_t,double_t,string_t,list_t,dict_t>;
+
+				JObject()
+				{
+					type = J_null;
+					_value = "null";
+				}
+
+				JObject(int_t value)
+				{
+					Int(value);
+				}
+
+				JObject(bool_t value)
+				{
+					Bool(value);
+				}
+
+				JObject(double_t value)
+				{
+					Double(value);
+				}
+
+				JObject(string_t const& value)
+				{
+					String(value);
+				}
+
+				JObject(list_t value)
+				{
+					List(std::move(value));
+				}
+
+				JObject(dict_t value)
+				{
+					Dict(std::move(value));
+				}
+
+				void Null()
+				{
+					type = J_null;
+					_value = "null";
+				}
+
+				void Int(int_t value)
+				{
+					_value = value;
+					type = J_int;
+				}
+
+				void Bool(bool_t value)
+				{
+					_value = value;
+					type = J_boolean;
+				}
+
+				void Double(double_t value)
+				{
+					_value = value;
+					type = J_double;
+				}
+
+				void String(std::string_view value)
+				{
+					_value = std::string(value);
+					type = J_string;
+				}
+
+				void List(list_t value)
+				{
+					_value = std::move(value);
+					type = J_list;
+				}
+
+				void Dict(dict_t value)
+				{
+					_value = std::move(value);
+					type = J_dict;
+				}
+
+				#define THROW_GET_ERROR(erron) throw std::logic_error("type error in get "#erron" value!")
+
+				template<class jsonValue>
+				jsonValue& Value()
+				{
+					//添加安全检查
+					if constexpr (IS_TYPE<jsonValue, string_t>)
+					{
+						if (type != J_string)
+						{
+							THROW_GET_ERROR(string);
+						}
+					}
+					else if constexpr (IS_TYPE<jsonValue, bool_t>)
+					{
+						if (m_type != T_BOOL)
+						{
+							THROW_GET_ERROR(BOOL);
+						}
+					}
+					else if constexpr (IS_TYPE<jsonValue, int_t>)
+					{
+						if (m_type != T_INT)
+						{
+							THROW_GET_ERROR(INT);
+						}
+					}
+					else if constexpr (IS_TYPE<jsonValue, double_t>)
+					{
+						if (m_type != T_DOUBLE)
+							THROW_GET_ERROR(DOUBLE);
+					}
+					else if constexpr (IS_TYPE<jsonValue, list_t>)
+					{
+						if (m_type != T_LIST)
+							THROW_GET_ERROR(LIST);
+					}
+					else if constexpr (IS_TYPE(V, dict_t))
+					{
+						if (m_type != T_DICT)
+							THROW_GET_ERROR(DICT);
+					}
+
+					void* v = value();
+					if (v == nullptr)
+						throw std::logic_error("unknown type in JObject::Value()");
+					return *((V*)v);
+				}
+
+			private:
+				Type type;
+				value_t _value;
+				void* value;
+			};
+
+			class Document
+			{
+			public:
+				JObject parse(char* const json)
+				{
+					str = json;
+					char token = moveNext();
+					if (token == 'n')
+					{
+						return parseNull();
+					}
+					if (token == 't' || token == 'f')
+					{
+						//return parseBool();
+					}
+					if (token == '-' || std::isdigit(token))
+					{
+						//return parseNumber();
+					}
+					if (token == '\"')
+					{
+						//return parseString();
+					}
+					if (token == '[')
+					{
+						//return parseList();
+					}
+					if (token == '{')
+					{
+						//return parseDict();
+					}
+					throw std::logic_error("unexpected character in parse json");
+				}
+
+			private:
+				JObject parseNull()
+				{
+					if (str.compare(idx, 4, "null") == 0)
+					{
+						idx += 4;
+						return {};
+					}
+					throw std::logic_error("parse null error");
+				}
+
+
+
+				JObject parseNumber()
+				{
+					auto pos = idx;
+					//integer part
+					if (str[idx] == '-')
+					{
+						idx++;
+					}
+					if (std::isdigit(str[idx])) 
+					{
+						while (std::isdigit(str[idx]))
+						{
+							idx++;
+						}
+					}
+					else
+					{
+						throw std::logic_error("invalid character in number");
+					}
+					if (str[idx] != '.')
+					{
+						return static_cast<int>(strtol(str.c_str() + pos, nullptr, 10));
+					}
+					//decimal part
+					if (str[idx] == '.')
+					{
+						idx++;
+						if (!std::isdigit(str[idx]))
+						{
+							throw std::logic_error("at least one digit required in parse float part!");
+						}
+						while (std::isdigit(str[idx]))
+						{
+							idx++;
+						}
+					}
+					return strtod(str.c_str() + pos, nullptr);
+				}
+				char moveNext()
+				{
+					while (std::isspace(str[idx])) idx++;
+					if (idx >= str.size())
+					{
+						throw std::logic_error("unexpected character in parse json");
+					}
+					//如果是注释，记得跳过
+					skipComment();
+					return str[idx];
+				}
+				void skipComment()
+				{
+					if (str.compare(idx, 2, R"(//)"))
+					{
+						while (true)
+						{
+							auto next_pos = str.find('\n', idx);
+							if (next_pos == std::string::npos)
+							{
+								throw std::logic_error("invalid comment area!");
+							}
+							//查看下一行是否还是注释
+							idx = next_pos + 1;
+							while (isspace(str[idx]))
+							{
+								idx++;
+							}
+							if (str.compare(idx, 2, R"(//)") != 0)
+							{ 
+								//结束注释
+								return;
+							}
+						}
+					}
+				}
+				JObject object;
+				string_t str;
+				size_t idx;
+			};
+		}
+	}
 }
 
 namespace leanCloudgameZero 

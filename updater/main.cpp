@@ -31,6 +31,7 @@ void download(rapidjson::Document& Dom,cloudgameZero::Foundation::zeroLog& objec
 
 INT main(INT argc,CHAR** argv)
 {
+	PRESSANYBOTTON();
 	std::string proxy = "https://gitee.com/eGlhb2p1emk/cloudgamefix/raw/develop/static/";
 	if (argc > 1)
 	{
