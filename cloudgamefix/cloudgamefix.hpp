@@ -22,6 +22,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 /*
+		__                __                        _____
+  _____/ /___  __  ______/ /___ _____ _____ ___  __/__  /  ___  _________
+ / ___/ / __ \/ / / / __  / __ `/ __ `/ __ `__ \/ _ \/ /  / _ \/ ___/ __ \
+/ /__/ / /_/ / /_/ / /_/ / /_/ / /_/ / / / / / /  __/ /__/  __/ /  / /_/ /
+\___/_/\____/\__,_/\__,_/\__, /\__,_/_/ /_/ /_/\___/____/\___/_/   \____/
+						/____/
+*/
+/*
 关于本库：
 此库是提供给网易云游戏Windows系统的C++"简易"程序库，提供了大量工具集用于辅助开发(有没有一种可能，这个头文件有200kb左右)
 此文件封装了WinToast，jthread等库，向派生接口提供支持
@@ -31,15 +39,7 @@ SOFTWARE.
 需要配置vcpkg安装
 备注：
 WinToast的许可证声明已在命名空间上面放置，在分发时需保留，否则后果自负
-*/
-
-/*
-		__                __                        _____
-  _____/ /___  __  ______/ /___ _____ _____ ___  __/__  /  ___  _________
- / ___/ / __ \/ / / / __  / __ `/ __ `/ __ `__ \/ _ \/ /  / _ \/ ___/ __ \
-/ /__/ / /_/ / /_/ / /_/ / /_/ / /_/ / / / / / /  __/ /__/  __/ /  / /_/ /
-\___/_/\____/\__,_/\__,_/\__, /\__,_/_/ /_/ /_/\___/____/\___/_/   \____/
-						/____/
+rapidjson同样!
 */
 #pragma once
 #ifndef CLOUDGAME_FIX_ZERO_H
@@ -255,7 +255,6 @@ namespace cloudgameZero
 #include <string>
 #include <thread>
 #include <future>
-#include <string>
 #include <vector>
 #include <chrono>
 #include <atomic>
@@ -299,7 +298,11 @@ namespace cloudgameZero
 #include <rapidjson/prettywriter.h>
 #pragma comment(lib, "user32")
 #pragma comment(lib, "shlwapi")
-#pragma push_macro("new")
+
+#ifndef CLOUDGAMEFIX_ASSERT
+#define CLOUDGAMEFIX_ASSERT(x) assert(x)
+#endif
+
 /*
 vcpkg:
 
@@ -314,6 +317,7 @@ using namespace ABI::Windows::Data::Xml::Dom;
 using namespace ABI::Windows::Foundation;
 using namespace ABI::Windows::UI::Notifications;
 using namespace Windows::Foundation;
+
 
 #if __Has_reached_cpp20_standard_cg
 namespace cloudgameZero
@@ -8398,25 +8402,20 @@ namespace cloudgameZero
 			using list_t = std::vector<JObject>;
 			using dict_t = std::map<char*, JObject>;
 
-			template<typename ty1, typename ty2>
-			using IS_TYPE = std::is_same_v<ty1, ty2>;
-
 			template<class T>
 			constexpr bool is_basic_type()
 			{
 				if constexpr (
-					IS_TYPE(T, string_t) ||
-					IS_TYPE(T, bool_t) ||
-					IS_TYPE(T, double_t) ||
-					IS_TYPE(T, int_t)
+					std::is_same_v(T, string_t) ||
+					std::is_same_v(T, bool_t) ||
+					std::is_same_v(T, double_t) ||
+					std::is_same_v(T, int_t)
 				)
 				{
 					return true;
 				}
 				return false;
 			}
-
-
 
 			class JObject
 			{
@@ -8501,56 +8500,70 @@ namespace cloudgameZero
 					type = J_dict;
 				}
 
-				#define THROW_GET_ERROR(erron) throw std::logic_error("type error in get "#erron" value!")
-
-				template<class jsonValue>
-				jsonValue& Value()
+				inline void THROW_GET_ERROR(std::string_view erron)
 				{
-					//添加安全检查
-					if constexpr (IS_TYPE<jsonValue, string_t>)
-					{
-						if (type != J_string)
-						{
-							THROW_GET_ERROR(string);
-						}
-					}
-					else if constexpr (IS_TYPE<jsonValue, bool_t>)
-					{
-						if (m_type != T_BOOL)
-						{
-							THROW_GET_ERROR(BOOL);
-						}
-					}
-					else if constexpr (IS_TYPE<jsonValue, int_t>)
-					{
-						if (m_type != T_INT)
-						{
-							THROW_GET_ERROR(INT);
-						}
-					}
-					else if constexpr (IS_TYPE<jsonValue, double_t>)
-					{
-						if (m_type != T_DOUBLE)
-							THROW_GET_ERROR(DOUBLE);
-					}
-					else if constexpr (IS_TYPE<jsonValue, list_t>)
-					{
-						if (m_type != T_LIST)
-							THROW_GET_ERROR(LIST);
-					}
-					else if constexpr (IS_TYPE(V, dict_t))
-					{
-						if (m_type != T_DICT)
-							THROW_GET_ERROR(DICT);
-					}
+					#if EnableZeroLibrayExceptions
+					throw std::logic_error(std::format("type error in get {} value!",erron).data());
+					#else
+					PrintError(std::format("type error in get {} value!", erron));
+					abort();
+					#endif
+				}
 
-					void* v = value();
-					if (v == nullptr)
-						throw std::logic_error("unknown type in JObject::Value()");
-					return *((V*)v);
+				inline const char* getString()
+				{
+					__CLOUDGAMEJSONASSERT(J_string);
+					void* ret = value;
+					return static_cast<const char*>(ret);
+				}
+
+				inline bool getBoolean()
+				{
+					__CLOUDGAMEJSONASSERT(J_boolean);
+					void* ret = value;
+					return *(reinterpret_cast<bool*>(ret));
+				}
+
+				inline int getInt()
+				{
+					__CLOUDGAMEJSONASSERT(J_int);
+					void* ret = value;
+					return *(reinterpret_cast<int*>(ret));
+				}
+
+				inline double getDouble()
+				{
+					__CLOUDGAMEJSONASSERT(J_double);
+					void* ret = value;
+					return *(reinterpret_cast<double*>(ret));
+				}
+
+				inline list_t getArray()
+				{
+					__CLOUDGAMEJSONASSERT(J_list);
+					void* ret = value;
+					return *(reinterpret_cast<list_t*>(ret));
+				}
+
+				inline dict_t getDict()
+				{
+					__CLOUDGAMEJSONASSERT(J_dict);
+					void* ret = value;
+					return *(reinterpret_cast<dict_t*>(ret));
 				}
 
 			private:
+				void __CLOUDGAMEJSONASSERT(Type type,std::string_view info = "")
+				{
+					#if NDEBUG
+					if (this->type != type)
+					{
+						throw std::logic_error(info.data());
+					}
+					#else
+					CLOUDGAMEFIX_ASSERT(this->type == type);
+					#endif
+				}
 				Type type;
 				value_t _value;
 				void* value;
