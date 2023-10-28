@@ -105,7 +105,7 @@ static_assert(__Result_cg, "If You Want Compile This Libray,Please Install Depen
 #if defined(_MSC_VER) // Using MSVC || 使用MSVC编译
 
 #if _MSC_VER >= 1937 // Visual Studio 2022
-#define __Is_MSVC_And_Support true
+#define __Is_MSVC_And_Support_cloudgame_juzi true
 #else // Maybe Not Visual Studio 2022 || 可能不是Visual Studio 2022
 #if _MSC_VER >= 1928 // Is Visual Studio 2019 || 使用了Visual Studio 2019
 #if !DisableVisualStudio2019_Warn_cg
@@ -120,7 +120,7 @@ static_assert(__Result_cg, "If You Want Compile This Libray,Please Install Depen
 #define __Is_MSVC_And_Support false
 #endif // Not Using MSVC || 没有使用MSVC编译
 
-static_assert(__Is_MSVC_And_Support, 
+static_assert(__Is_MSVC_And_Support_cloudgame_juzi, 
 	"This Libray Need MSVC Compiler To Compile,"
 	"Because This Libray Using Some Extended From MSVC And You Must Using Visual Studio 2019 or later"
 );
@@ -151,11 +151,17 @@ namespace cloudgameZero
 	}
 	#endif
 
+	class ThreadPool;
+
 	namespace Infomation
 	{
+		static const wchar_t* APPNAME = L"cloudgameFixZero";
+		static const wchar_t* AUMI = L"cloudgameFixZero";
+
 		namespace Secutriy
 		{
 		}
+		
 		namespace Event
 		{
 		}
@@ -209,10 +215,10 @@ namespace cloudgameZero
 	{
 		namespace sigmaInterface
 		{
-			namespace guid
+			namespace Implement
 			{
 			}
-			namespace Implement
+			inline namespace guid
 			{
 			}
 		}
@@ -261,6 +267,7 @@ namespace cloudgameZero
 #include <conio.h>
 #include <sstream>
 #include <roapi.h>
+#include <cassert>
 #include <variant>
 #include <fstream>
 #include <Psapi.h>
@@ -268,7 +275,6 @@ namespace cloudgameZero
 #include <ShlObj.h>
 #include <aclapi.h>
 #include <iostream>
-#include <assert.h>
 #include <windows.h>
 #include <algorithm>
 #include <stdexcept>
@@ -305,10 +311,14 @@ namespace cloudgameZero
 
 /*
 vcpkg:
-
-rapidjson -> vcpkg install rapidjson:x64-windows
-boost-stacktrace -> vcpkg install boost-stacktrace:x64-windows
-curl -> vcpkg install curl
+	dynamic:
+		rapidjson -> vcpkg install rapidjson:x64-windows
+		boost-stacktrace -> vcpkg install boost-stacktrace:x64-windows
+		curl -> vcpkg install curl:x64-windows
+	static:
+		rapidjson -> vcpkg install rapidjson:x64-windows-static
+		boost-stacktrace -> vcpkg install boost-stacktrace:x64-windows-static
+		curl -> vcpkg install curl:x64-windows-static
 
 */
 
@@ -318,6 +328,9 @@ using namespace ABI::Windows::Foundation;
 using namespace ABI::Windows::UI::Notifications;
 using namespace Windows::Foundation;
 
+/**
+ * 此库的所有注释文档和文档将采用英文来标记！
+ */
 
 #if __Has_reached_cpp20_standard_cg
 namespace cloudgameZero
@@ -325,9 +338,11 @@ namespace cloudgameZero
 	template<typename ret, typename... type>
 	using delegate = std::function<ret(type...)>;
 
-	class ThreadPool;
 
-	//存储此库基本的信息
+	/*
+	* The Infomation namespace stores basic information and variables of the library as well as some functions
+	* These are referenced by functions and objects of the library, so this namespace acts as a basic global variable declaration
+	*/
 	namespace Infomation
 	{
 		static const HKEY HKCR = ((HKEY)(ULONG_PTR)((LONG)0x80000000));
@@ -340,8 +355,6 @@ namespace cloudgameZero
 		constexpr std::string_view __cg_Instance__ = "cloudgame-fix_zero 2.05 pre-build zero Private Instance : ";
 		constexpr std::string_view versionConf = "cloudgame-fix_zero 2.10 pre-build zero Private sigma | The C++ Edition";
 		constexpr std::string_view _USER_cloudpc = "netease";
-		static const LPCWSTR APPNAME = L"cloudgameFixZero";
-		static const LPCWSTR AUMI = L"cloudgameFixZero";
 		
 		//用于后期库的基本安全功能处理
 		namespace Secutriy
@@ -379,7 +392,7 @@ namespace cloudgameZero
 		/* 用来创建默认日志profile */
 		constexpr std::string_view logconfig_json = R"(
 		{
-			"logFormatTime": "[%Ec %A]",
+			"logFormatTime": "[%d-%02d-%02d %02d:%02d:%02d %03d]",
 			"outToTerminal": {
 				"Enable": true,
 				"render": true,
@@ -416,41 +429,92 @@ namespace cloudgameZero
 		static const std::string_view Shell_SecondaryTrayWnd = "Shell_SecondaryTrayWnd";
 		static const std::string_view DesktopMgr64 = "VirDestopWindow";
 		static const std::string_view DesktopTaskBar64 = "VirTrayWindow";
+
+		template<typename... Args>
+		inline std::string makeFormat(std::string_view fmt, Args&&... args)
+		{
+			auto fmtArgs = std::make_format_args(args...);
+			std::string fmts = std::vformat(fmt, fmtArgs);
+			return fmts;
+		}
+
+		template<typename... Args>
+		inline std::wstring makeFormat(std::wstring_view fmt, Args&&... args)
+		{
+			auto fmtArgs = std::make_wformat_args(args...);
+			std::wstring fmts = std::vformat(fmt, fmtArgs);
+			return fmts;
+		}
+
+		enum level
+		{
+			Reserved,
+			Trace,
+			Debug,
+			Info,
+			Warn,
+			Error,
+			Fatal
+		};
+
+		static std::fstream* logFileStream;
+		static bool logSession;
+
+		static const std::map<cloudgameZero::Infomation::level, std::string> levels = {
+			{Reserved,	"ERROR"},
+			{Trace,		"TRACE"},
+			{Debug,		"DEBUG"},
+			{Info,		"INFO"},
+			{Warn,		"WARN"},
+			{Error,		"ERROR"},
+			{Fatal,		"FATAL"}
+		};
+
+		static const std::locale chs("chs");
+		static const std::locale _Clocale("C");
 	}
+
+	using logLevel = Infomation::level;
 
 	/* cloudgameZero提供的单独句柄，用于实现日志库功能 */
 	static const HANDLE CONSOLE_OUTPUT_HANDLE = GetStdHandle(STD_OUTPUT_HANDLE);
 
-	/*用于特定类输出日志内容提供的简易函数，同时标识当前发布模式状态 .*/
+	/* A simple function provided for a specific class of output log content, while identifying the current publication mode status.*/
 	#ifdef NDEBUG
+	
 	constexpr bool IS_DEBUG = false;
-	template<typename Ty>
+
 	/**
-	 * \brief 此部分写于2023/7/23.
-	 * \brief 警告：如果要显示额外日志信息，请使用Debug发布模式而不是Realease
-	 */
-	inline void PrintError(Ty msg) noexcept {}
+	* \brief This part was written on 2023/7/23.
+	* \brief Warning : If you want to display additional log information, use Debug release mode instead of Realease
+	*/
+	template<typename Ty>	
+	inline void PrintError(Ty msg) {}
+	
 	/**
-	 * \brief 此部分写于2023/7/23.
-	 * \brief 警告：如果要显示额外日志信息，请使用Debug发布模式而不是Realease
-	 */
+	* \brief This part was written on 2023/7/23.
+	* \brief Warning : If you want to display additional log information, use Debug release mode instead of Realease
+	*/
 	template<typename Ty>
-	void inline DEBUG_MESSAGE(Ty str) noexcept {}
+	void inline DEBUG_MESSAGE(Ty str) {}
+
 	#else
+	
 	constexpr bool IS_DEBUG = true;
+
 	/**
-	 * \brief 此部分写于2023/7/23
-	 * \brief 将调试信息打印到控制台，同时清除缓冲区.
-	 * \brief 批注
-	 * \brief 此函数与DEBUG_MESSAGE使用对象区别在于本函数使用std::wcerr
-	 * \brief 如果std::wostream导出的对象接受msg的数据类型，则编译通过，否则编译失败
-	 * \brief -----------------------以下部分写于2023/8/5-------------------------------
-	 * \brief 此函数在打印完成后将检测流状态，如果流损坏，它将会临时清除流的数据，设置locale为chs，随后重新打印文字
-	 * \brief 如果使用了Foundation::Tool的字符串转换函数，可能会导致触发流损坏导致std::wcout尝试修复并再次输出字符串
-	 * \param msg 一个泛型参数
-	 * \brief -----------------------以下部分写于2023/9/14-------------------------------
-	 * \brief 如果函数传入了std::exception，将直接打印里面的字符串内容，由LibError传入
-	 */
+	* \brief This section was written on 2023/7/23.
+	* \brief Print debug information to the console and clear the buffer.
+	* \brief Comments:
+	* \brief This function differs from DEBUG_MESSAGE in that it uses std::wcerr.
+	* \brief Compilation will pass if an object exported by std::wostream accepts the data type of 'msg'; otherwise, it will fail.
+	* \brief -----------------------The following section was written on 2023/8/5-------------------------------
+	* \brief This function checks the stream state after printing. If the stream is corrupted, it will temporarily clear the stream data, set the locale to 'chs', and then reprint the text.
+	* \brief If Foundation::Tool's string conversion functions are used, it may trigger stream corruption, causing std::wcout to attempt to repair and output the string again.
+	* \param msg A generic parameter.
+	* \brief -----------------------The following section was written on 2023/9/14-------------------------------
+	* \brief If the function is passed a std::exception, it will directly print the string content from LibError.
+	*/
 	template<typename Ty>
 	void PrintError(Ty msg)
 	{
@@ -488,9 +552,10 @@ namespace cloudgameZero
 		}
 		else 
 		{
-			throw std::exception("无法加锁");
+			throw std::exception("Can't Enable Thread Lock");
 		}
 	}
+
 	/**
 	 * \brief 此部分写于2023/7/23
 	 * \brief 将调试信息打印到控制台，同时清除缓冲区.
@@ -537,77 +602,86 @@ namespace cloudgameZero
 	#endif //NDEBUG
 
 	/**
-	 * \brief 此部分写于2023/9/24.
-	 * \brief 将库引发的异常发送到此处
-	 * \brief 批注：
-	 * \brief error必须派生自std::exception，因此此库的大部分异常都使用标准库异常
-	 * \brief 并且只允许传入对象
-	 * 
-	 * \param error 要抛出的错误
-	 */
+	* \brief This section was written on 2023/9/24.
+	* \brief Send exceptions raised by the library to this location.
+	* \brief Comments:
+	* \brief 'error' must be derived from std::exception, so most exceptions in this library use standard library exceptions.
+	* \brief And only objects are allowed to be passed.
+	*
+	* \param error : The error to be thrown.
+	*/
 	template<Infomation::stdexcept_ref T>
 	static void LibError(T error)
 	{
-		#if EnableZeroSAL
-		static_assert(EnableZeroLibrayExceptions == true, "检测到异常被禁用，请将EnableZeroSAL宏设置为false，否则此处无法编译通过");
-		/* 这里我们使用静态断言是防止用户把异常禁用，因为库函数中会依赖 */
-		#endif
-		#if EnableZeroLibrayExceptions
+	#if EnableZeroSAL
+	static_assert(EnableZeroLibrayExceptions == true, "Exception detection is disabled. Please set the EnableZeroSAL macro to false to compile this code, or library functionality may be compromised.");
+	/* Here, we use a static_assert to prevent users from disabling exceptions since library functions rely on them. */
+	#endif
+	#if EnableZeroLibrayExceptions
 		throw error;
-		#else
+	#else
 		std::exception err(error);
 		PrintError(err);
-		#endif
+	#endif
 	}
 
+
 	/**
-	 * \brief 此部分写于2023/9/24.
-	 * \brief 将字符序列转换为整数。
-	 * 
-	 * \param string 要转换的字符序列。
-	 * \param idx 要转换的字符序列。
-	 * \param base 要使用的号码基。
-	 * \return 整数值
-	 */
+	* \brief This section was written on 2023/9/24.
+	* \brief Converts a character sequence to an integer.
+	*
+	* \param string : The character sequence to be converted.
+	* \param idx : The index value of the first unconverted character.
+	* \param base : The numeric base to be used.
+	* \return Integer
+	*/
 	template<Infomation::number_string T>
-	static inline int strToInt(const T string, size_t* idx = nullptr, int base = 10)
+	static inline int strToInt(const T& string, size_t* idx = nullptr, int base = 10)
 	{
-		static_assert(!std::is_integral_v<T>,"不支持使用整数，因为这个函数本身就是将字符串转换为int的函数");
-		/* 模板将会确定基础数据类型转发给std::stoi */
-		try 
+		static_assert(!std::is_integral_v<T>, "Using integers is not supported because this function is designed to convert strings to integers.");
+		/* The template will determine the underlying data type forwarded to std::stoi */
+		try
 		{
 			if (string[0] < '0' || string[0] > '9')
 			{
-				LibError(std::runtime_error("如果想让函数正常解析，请保证第一位必须是数字"));
+				LibError(std::runtime_error("To ensure proper parsing, please make sure the first character is a digit."));
 			}
-			int result = std::stoi(/*在此处会传给构造函数，通过重载选择版本*/ string , /*剩下的参数正常转发给函数 */idx, base);
+			int result = std::stoi(/* The constructor will be called here, and the version to use is selected through overloading. */ string, /* The remaining parameters are forwarded to the function as usual. */ idx, base);
 			return result;
 		}
-		catch (std::exception& except) 
+		catch (std::exception& except)
 		{
-			//如果出现异常，此处通过引用捕捉到标准库异常，随后转发给LibError函数
+			// If an exception occurs, it's caught by reference here and then forwarded to the LibError function.
 			LibError(except);
 		}
 		return -1;
 	}
 
-	template<typename T>
+	/**
+	 * \brief This section was written on 2023/9/24.
+	 * 
+	 * \param string : The character sequence to be converted.
+	 * \param idx : The index value of the first unconverted character.
+	 * \param base : The numeric base to be used.
+	 * \return Long
+	 */
+	template<Infomation::number_string T>
 	static inline long strToLong(const T string, size_t* idx = nullptr, int base = 10)
 	{
-		static_assert(!std::is_integral_v<T>, "不支持使用整数，因为这个函数本身就是将字符串转换为int的函数");
-		/* 模板将会确定基础数据类型转发给std::stoi */
+		static_assert(!std::is_integral_v<T>, "Using integers is not supported because this function is designed to convert strings to integers.");
+		/* The template will determine the underlying data type forwarded to std::stoi */
 		try
 		{
 			if (string[0] < '0' || string[0] > '9')
 			{
-				LibError(std::runtime_error("如果想让函数正常解析，请保证第一位必须是数字"));
+				LibError(std::runtime_error("To ensure proper parsing, please make sure the first character is a digit."));
 			}
-			long result = std::stol(/*在此处会传给构造函数，通过重载选择版本*/ string, /*剩下的参数正常转发给函数 */idx, base);
+			long result = std::stol(/* The constructor will be called here, and the version to use is selected through overloading. */ string, /* The remaining parameters are forwarded to the function as usual. */ idx, base);
 			return result;
 		}
 		catch (std::exception& except)
 		{
-			//如果出现异常，此处通过引用捕捉到标准库异常，随后转发给LibError函数
+			// If an exception occurs, it's caught by reference here and then forwarded to the LibError function.
 			LibError(except);
 		}
 		return -1;
@@ -616,21 +690,24 @@ namespace cloudgameZero
 	template<typename T>
 	static inline long long strToLongLong(const T string, size_t* idx = nullptr, int base = 10)
 	{
-		static_assert(!std::is_integral_v<T>, "不支持使用整数，因为这个函数本身就是将字符串转换为int的函数");
-		/* 模板将会确定基础数据类型转发给std::stoi */
+		static_assert(!std::is_integral_v<T>, "Not supported for integers as this function is intended for converting strings to integers.");
+		//The template will determine the underlying data type passed to std::stoi
 		try
 		{
 			if (string[0] < '0' || string[0] > '9')
 			{
-				LibError(std::runtime_error("如果想让函数正常解析，请保证第一位必须是数字"));
+				LibError(std::runtime_error("To ensure proper parsing, please make sure the first character is a digit."));
 			}
-			long long ago = std::stoll(/*在此处会传给构造函数，通过重载选择版本*/ string, /*剩下的参数正常转发给函数 */idx, base);
-			return ago;
+			long long result = std::stoll(
+				/* Passed to the constructor here, selecting the version through overloading */
+				string,
+				/* The remaining parameters are forwarded to the function */idx, base);
+			return result;
 		}
-		catch (std::exception& except)
+		catch (std::exception& exception)
 		{
-			//如果出现异常，此处通过引用捕捉到标准库异常，随后转发给LibError函数
-			LibError(except);
+			// If an exception occurs, it is caught by reference and then forwarded to the LibError function.
+			LibError(exception);
 		}
 		return -1;
 	}
@@ -799,9 +876,10 @@ namespace cloudgameZero
 
 		/**
 		 * \brief 创建事件线程队列.
-		 * 
+		 * \brief 当订阅者回调的数量超过线程池的大小时，会进行线程池的释放和重新创建，以适应更多的订阅者。
 		 * \param eventName 事件名
 		 * \param size 事件队列大小
+		 * 
 		 */
 		void createEvent(const std::string& eventName,size_t& size)
 		{
@@ -823,7 +901,7 @@ namespace cloudgameZero
 					pools[eventName].release();
 					while (subscribers[eventName].size() <= size)
 					{
-						size += 10; //增加10个队列容量
+						size++; //增加队列容量
 					}
 					//在此处我们更新size，直到这个size小于订阅者的队列数量
 					pools[eventName] = std::make_unique<ThreadPool>(static_cast<int>(size));
@@ -891,7 +969,7 @@ namespace cloudgameZero
 			{
 				LibError(std::invalid_argument("Callback Can't Be null"));
 			}
-			size_t size = 50;
+			size_t size = 15;
 			createEvent(eventName, size);
 			int id = static_cast<int>(subscribers[eventName].size() + 1);
 			subscribers[eventName][id] = callback;
@@ -1189,6 +1267,26 @@ namespace cloudgameZero
 		{
 			return 0;
 		}
+	}
+
+	static void startLoggerSession()
+	{
+		if (Infomation::logFileStream && Infomation::logSession)
+		{
+			return;
+		}
+		Infomation::logFileStream = (std::fstream*)::operator new(sizeof(std::fstream));
+		Infomation::logSession = true;
+	}
+
+	static void endLoggerSession()
+	{
+		if (!(Infomation::logFileStream && Infomation::logSession))
+		{
+			return;
+		}
+		::operator delete(Infomation::logFileStream);
+		Infomation::logSession = false;
 	}
 
 	/* 用于对C++20协程的简单支持.*/
@@ -2408,16 +2506,14 @@ namespace cloudgameZero
 				 * \param format 格式化字符串，取自https://www.apiref.com/cpp-zh/cpp/io/manip/put_time.html
 				 * \return 返回格式化后的字符串
 				 */
-				static inline std::string makeTimeStr(std::string& format) noexcept
+				static inline std::string makeTimeStr(std::string& format) throw()
 				{
-					std::time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-					std::tm tms;
-					gmtime_s(&tms, &tt);
-					localtime_s(&tms, &tt);
-					std::stringstream stream;
-					stream << std::put_time(&tms, format.c_str());
-					std::string time = stream.str();
-					return time;
+					time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+					tm time_tm;
+					localtime_s(&time_tm, &tt);
+					char strTime[50] = { 0 };
+					strftime(strTime, 50, format.c_str(), &time_tm);
+					return strTime;
 				}
 
 				static std::string utf8ToGbk(std::string& convert) noexcept
@@ -4396,6 +4492,10 @@ namespace cloudgameZero
 				{
 					try
 					{
+						if (_isInit)
+						{
+							return;
+						}
 						parseHelper(filename);
 					}
 					catch (...)
@@ -4548,17 +4648,18 @@ namespace cloudgameZero
 					try
 					{
 						static const std::map<std::string, int> levels = {
-							{"Trace",1},
-							{"Debug",2},
-							{"Info", 3},
-							{"Warn", 4},
-							{"Error",5},
-							{"Fatal",6}
+							{"trace",1},
+							{"debug",2},
+							{"info", 3},
+							{"warn", 4},
+							{"error",5},
+							{"fatal",6}
 						};
 						std::string find = this->_root["outToTerminal"]["rootLogger"]["level"].GetString();
-						auto itr = levels.find(find);
-						assert(itr != levels.end());
-						return itr->second;
+						std::ranges::transform(find, find.begin(), ::tolower);
+						auto it = levels.find(find);
+						CLOUDGAMEFIX_ASSERT(it != levels.end());
+						return it->second;
 					}
 					catch (...)
 					{
@@ -4721,14 +4822,18 @@ namespace cloudgameZero
 					f.close();
 				}
 
-				void saveSettings(std::string filename)
+				void saveSettings(std::string_view filename)
 				{
 					auto& Dom = this->_root;
+					if (Dom.Null())
+					{
+						return;
+					}
 					rapidjson::StringBuffer sb;
 					rapidjson::PrettyWriter pw(sb);
 					Dom.Accept(pw);
 					std::fstream f;
-					if (std::filesystem::exists(filename))
+					if (std::filesystem::exists(filename.data()))
 					{
 						f.open(filename, std::ios::in);
 						f.peek();
@@ -4822,21 +4927,18 @@ namespace cloudgameZero
 				) : times(NULL), mark(mark), server(server)
 				{
 					conf = std::make_unique<logConfig>();
-					bool already = false;
 					if (!std::filesystem::exists(file))
 					{
 						DEBUG_MESSAGE("未找到配置文件\n准备生成一个默认配置");
-						logConfig::genDefaultSettings(file);
 						conf->InitConfig(file);
 						if (CallBack)
 						{
 							CallBack(conf->getDocment());
-							already = true;
 						}
 					}
-					if (CallBack && !already)
+					conf->InitConfig(file);
+					if (CallBack)
 					{
-						conf->InitConfig(file);
 						CallBack(conf->getDocment());
 					}
 					conf->saveSettings(file);
@@ -5862,7 +5964,7 @@ namespace cloudgameZero
 					{
 						if (lock.try_lock_for(std::chrono::microseconds(1)))
 						{
-							std::wstring already = this->makeFormat(fmt, args...);
+							auto already = this->makeFormat(fmt.data(), args...);
 							std::wstring logs = this->makeLogs(Fatal, already);
 							this->write(Fatal, logs);
 							this->pushList(logs);
@@ -5870,7 +5972,7 @@ namespace cloudgameZero
 					}
 					else
 					{
-						std::wstring already = this->makeFormat(fmt, args...);
+						auto already = this->makeFormat(fmt, args...);
 						std::wstring logs = this->makeLogs(Fatal, already);
 						this->write(Fatal, logs);
 						this->pushList(logs);
@@ -5994,7 +6096,6 @@ namespace cloudgameZero
 					using namespace Foundation::Tool;
 					using namespace Foundation::Tool::function;
 					auto it = this->levels.find(report);
-					assert(it != this->levels.end());
 					std::string logs = "{} [{}/{}]: {} {} {}"_zF(
 						makeTimeStr(this->logTimeFormat),
 						this->mark,
@@ -6010,7 +6111,6 @@ namespace cloudgameZero
 					using namespace Foundation::Tool;
 					using namespace Foundation::Tool::function;
 					auto it = this->levels.find(report);
-					assert(it != this->levels.end());
 					std::wstring logs = L"{} [{}/{}]: {} {} {}"_zWF(
 						MutiToWide(makeTimeStr(this->logTimeFormat)),
 						MutiToWide(this->mark),
@@ -6200,7 +6300,7 @@ namespace cloudgameZero
 		/**
 		 * 用于修复网易云游戏系统的接口.
 		 */
-		interface __declspec(uuid("5DD98957-02FC-4583-A25C-14A69321F2F0")) __declspec(novtable)
+		MakeCloudgameInterface("5DD98957-02FC-4583-A25C-14A69321F2F0")
 		cgFix : public IUnknown
 		{
 			enum class mode { cloudgame, cloudpc };
@@ -6211,7 +6311,7 @@ namespace cloudgameZero
 		};
 
 		/* 相比cgFix，cgSystem提供了更多功能，同时支持查询cgFix接口，可以看作是对cgFix的强化版 */
-		interface __declspec(uuid("A3872F59-C8AF-467E-8BF5-DF19FB77149E")) __declspec(novtable)
+		MakeCloudgameInterface("A3872F59-C8AF-467E-8BF5-DF19FB77149E")
 		cgSystem : public cgFix
 		{
 			enum class Theme { Default, white, windows, flower };
@@ -6249,6 +6349,27 @@ namespace cloudgameZero
 			virtual void changeTheme(IN Theme theme) = 0;
 		};
 
+		MakeCloudgameInterface("46A0DDA0-A59A-4557-8F18-6F359CD9B3D8")
+		cgToolA : public IUnknown
+		{
+		public:
+			virtual HRESULT makeShortcut(_In_ const std::string_view target,_In_ const std::string_view save) = 0;
+			
+			virtual HRESULT startDownload(_In_ const std::string& url, _In_ const std::string save) = 0;
+			
+			virtual HRESULT getSpecialFolderLocation(_In_ int cisdl,_Out_ std::string& out) = 0;
+		};
+
+		MakeCloudgameInterface("4C5CCB25-C16D-49DF-AB82-DC47CBBFFAD7")
+		cgToolW : public IUnknown
+		{
+		public:
+			virtual HRESULT makeShortcut(_In_ const std::wstring_view target,_In_ const std::wstring_view save) = 0;
+			
+			virtual HRESULT startDownload(_In_ const std::wstring& url,_In_ const std::wstring save) = 0;
+
+			virtual HRESULT getSpecialFolderLocation(_In_ int cisdl,_Out_ std::wstring& out) = 0;
+		};
 
 		MakeCloudgameInterface("B3560A33-4427-4BD4-BA76-808C6FAA2442")
 		repo
@@ -6257,12 +6378,10 @@ namespace cloudgameZero
 			virtual int setRepoFilestream() = 0;
 		};
 
-		HRESULT createInstance(const GUID iid, void** ppv);
-
 		/* 存储内部接口的声明 */
 		namespace sigmaInterface
 		{
-			/* 存储子类重写的具体实现，所有cloudgameFixZero派生的cpp文件将在此命名空间声明自己的类 */
+			/* 存储子类重写的具体实现，所有cloudgameFixZero派生的cpp文件将在此命名空间声明自己的对应类 */
 			namespace Implement
 			{
 				class __InternalDateTime : virtual public cloudgameZero::Foundation::Warpper::InternalDateTime
@@ -6533,16 +6652,103 @@ namespace cloudgameZero
 			}
 
 			/* 接口id，若调用cloudgameFixZero接口，请使用此id */
-			namespace guid
+			inline namespace guid
 			{
-				static const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgFix = __uuidof(cgFix);
-				static const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgSystem = __uuidof(cgSystem);
-				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_CGSYSTEM;	/* cgSystem接口ID */
+				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgFix;
+				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgSystem;
+				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolA;
+				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolW;
+				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolA_s;
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_CGTOOL;	/* cgTool接口ID */
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_CGTOOLS;	/* 设计用于安全功能的cgTool接口ID，与cgTool一起提供 */
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_CGSOFTWARE;	/* 设计基于cgTool安全功能的软件类接口 */
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_ASCIISTYLE;	/* ascii字符画预定义接口 */
+
+				extern IUnknown* Query(const IID& iid);
 			}
+		}
+
+		/**
+		 * \brief This section was written on 2023/10/28.
+		 * \brief Get the mapped cloudgamefix instance from the guid provided by the cloudgamefix library
+		 *
+		 * \param iid Interface provided by the guid namespace
+		 * \param ppv Accepts a pointer to hold the address of the instance
+		 * \return S_OK is returned on success, E_NOINTERFACE is returned if no interface is found, or some other error code is returned otherwise
+		 */
+		static HRESULT createInstance(_In_ const GUID iid, _Out_ void** ppv)
+		{
+			IUnknown* ptr = sigmaInterface::Query(iid);
+			if (!ptr)
+			{
+				*ppv = nullptr;
+				return E_NOINTERFACE; // No such interface is available.
+			}
+			HRESULT hr = ptr->QueryInterface(iid, ppv); // Query for the requested interface using QueryInterface method.
+			if (FAILED(hr))
+			{
+				*ppv = nullptr;
+				return hr; // Failed to obtain the requested interface.
+			}
+			reinterpret_cast<IUnknown*>(*ppv)->AddRef();// Increase the reference count of the obtained interface to manage its lifetime.
+			ptr->Release();	// Release the initial IUnknown pointer to avoid memory leaks.
+			return S_OK;	// Success, the interface has been created and is ready for use.
+		}
+
+		template<typename Ty>
+		concept cloudgameInstance = std::is_abstract_v<Ty> && std::is_class_v<Ty> && std::is_base_of_v<IUnknown, Ty>;
+		//To create an instance, an abstract class is required and it must be a derived class of the IUnknown class.
+
+		/**
+		 * \brief This section was writeen on 2023/10/28.
+		 * \brief Create an instance by taking the guid of the class map
+		 * 
+		 * \param ppv Accepts a pointer to hold the address of the instance
+		 * \return 
+		 */
+		template<cloudgameInstance Ty>
+		inline HRESULT createInstance(_Out_ Ty** ppv)
+		{
+			return createInstance(__uuidof(Ty), (void**)ppv);
+		}
+
+		/**
+		 * \brief This section was writeen on 2023/10/28.
+		 * \brief Create an instance by taking the guid of the class map
+		 *
+		 * \param ppv Accepts a unique_ptr to hold the address of the instance
+		 * \return
+		 */
+		template<cloudgameInstance Ty>
+		inline HRESULT createInstance(_Out_ std::unique_ptr<Ty>& ppv)
+		{
+			return createInstance(__uuidof(Ty), (void**)&ppv);
+		}
+
+		/**
+		 * \brief This section was writeen on 2023/10/28.
+		 * \brief Create an instance by taking the guid of the class map
+		 *
+		 * \param ppv Accepts a shared_ptr to hold the address of the instance
+		 * \return
+		 */
+		template<cloudgameInstance Ty>
+		inline HRESULT createInstance(_Out_ std::shared_ptr<Ty>& ppv)
+		{
+			return createInstance(__uuidof(Ty), (void**)&ppv);
+		}
+
+		/**
+		 * \brief This section was writeen on 2023/10/28.
+		 * \brief Create an instance by taking the guid of the class map
+		 *
+		 * \param ppv Accepts a ComPtr to hold the address of the instance
+		 * \return 
+		 */
+		template<cloudgameInstance Ty>
+		inline HRESULT createInstance(_Out_ ComPtr<Ty>& ppv)
+		{
+			return createInstance(__uuidof(Ty), (void**)&ppv);
 		}
 	}
 
@@ -8400,7 +8606,7 @@ namespace cloudgameZero
 			using double_t = double;
 			using string_t = std::basic_string<char>;
 			using list_t = std::vector<JObject>;
-			using dict_t = std::map<char*, JObject>;
+			using dict_t = std::map<std::string, JObject>;
 
 			template<class T>
 			constexpr bool is_basic_type()
@@ -8500,7 +8706,7 @@ namespace cloudgameZero
 					type = J_dict;
 				}
 
-				inline void THROW_GET_ERROR(std::string_view erron)
+				inline void THROW_GET_ERROR(std::string erron)
 				{
 					#if EnableZeroLibrayExceptions
 					throw std::logic_error(std::format("type error in get {} value!",erron).data());
@@ -8538,18 +8744,50 @@ namespace cloudgameZero
 					return *(reinterpret_cast<double*>(ret));
 				}
 
-				inline list_t getArray()
+				inline list_t& getArray()
 				{
 					__CLOUDGAMEJSONASSERT(J_list);
 					void* ret = value;
 					return *(reinterpret_cast<list_t*>(ret));
 				}
 
-				inline dict_t getDict()
+				inline dict_t& getDict()
 				{
 					__CLOUDGAMEJSONASSERT(J_dict);
 					void* ret = value;
 					return *(reinterpret_cast<dict_t*>(ret));
+				}
+
+				void addArrayMember(JObject item)
+				{
+					if (type == J_list)
+					{
+						auto list = getArray();
+						list.push_back(std::move(item));
+						return;
+					}
+					LibError(std::logic_error("not a list type! JObjcct::push_back()"));
+				}
+
+				void popBack()
+				{
+					if (type == J_list)
+					{
+						auto& list = getArray();
+						list.pop_back();
+						return;
+					}
+					LibError(std::logic_error("not list type! JObjcct::pop_back()"));
+				}
+
+				JObject& operator[](std::string key)
+				{
+					if (type == J_dict)
+					{
+						auto& dict = getDict();
+						return dict[key];
+					}
+					LibError(std::logic_error("not dict type! JObject::opertor[]()"));
 				}
 
 			private:
@@ -8602,6 +8840,8 @@ namespace cloudgameZero
 					}
 					throw std::logic_error("unexpected character in parse json");
 				}
+
+
 
 			private:
 				JObject parseNull()
