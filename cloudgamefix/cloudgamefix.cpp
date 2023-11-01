@@ -44,7 +44,7 @@ namespace cloudgameZero
 					virtual HRESULT QueryInterface(const IID& iid, void** ppv) override;
 					virtual ULONG AddRef() override;
 					virtual ULONG Release() override;
-					virtual void setWallpaper(IN const std::string& path);
+					virtual void setWallpaper(_In_ const std::string& path);
 					virtual void downloadWallpaperAndSet(IN const std::string& url, IN const std::string path) override;
 					virtual void changeResolution(IN short length, IN short height) override;
 					virtual void changeTheme(IN Theme theme);
@@ -64,8 +64,6 @@ namespace cloudgameZero
 				{
 
 				};
-
-				
 			}
 
 			inline namespace guid
@@ -77,7 +75,7 @@ namespace cloudgameZero
 				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolA_s = __uuidof(__cgToolA_s);
 
 				//This function is normally called by the createInstance function, which takes a uuid and compares it to the corresponding IUnknown pointer
-				extern IUnknown* Query(const IID& iid)
+				extern IUnknown* Query(_In_ const IID& iid)
 				{
 					if (iid == IID_CLOUDGAME_FIX_ZERO_IID_IcgFix)
 					{
@@ -93,48 +91,10 @@ namespace cloudgameZero
 						return nullptr;
 					}
 				}
-			}
-
-			//HRESULT createInstance(const GUID iid, void** ppv)
-			//{
-			//	IUnknown* ptr = Query(iid);
-			//	if (!ptr)
-			//	{
-			//		*ppv = nullptr;
-			//		return E_NOINTERFACE; // No such interface is available.
-			//	}
-			//	HRESULT hr = ptr->QueryInterface(iid, ppv); // Query for the requested interface using QueryInterface method.
-			//	if (FAILED(hr))
-			//	{
-			//		*ppv = nullptr;
-			//		return hr; // Failed to obtain the requested interface.
-			//	}
-			//	reinterpret_cast<IUnknown*>(*ppv)->AddRef();// Increase the reference count of the obtained interface to manage its lifetime.
-			//	ptr->Release();	// Release the initial IUnknown pointer to avoid memory leaks.
-			//	return S_OK;	// Success, the interface has been created and is ready for use.
-			//}
+			}		
 		}
 	}
 }
-
-//HRESULT Interface::createInstance(_In_ const GUID iid, _Outptr_ void** ppv)
-//{
-//	IUnknown* ptr = Query(iid);
-//	if (!ptr)
-//	{
-//		*ppv = nullptr;
-//		return E_NOINTERFACE; // No such interface is available.
-//	}
-//	HRESULT hr = ptr->QueryInterface(iid, ppv); // Query for the requested interface using QueryInterface method.
-//	if (FAILED(hr))
-//	{
-//		*ppv = nullptr;
-//		return hr; // Failed to obtain the requested interface.
-//	}
-//	reinterpret_cast<IUnknown*>(*ppv)->AddRef();// Increase the reference count of the obtained interface to manage its lifetime.
-//	ptr->Release();	// Release the initial IUnknown pointer to avoid memory leaks.
-//	return S_OK;	// Success, the interface has been created and is ready for use.
-//}
 
 static std::map<int, std::string> path = {
 		{__cgFix::origin,	"D:\\origin games"},
@@ -183,7 +143,7 @@ ULONG  __cgFix::AddRef()
 
 ULONG  __cgFix::Release()
 {
-	if (this->ref--; this->ref == 0)
+	if (--this->ref; this->ref == 0)
 	{
 		delete this;
 	}
@@ -499,7 +459,7 @@ ULONG cloudgameZero::Interface::sigmaInterface::Implement::__cgSystem::Release()
 	return NULL;
 }
 
-void cloudgameZero::Interface::sigmaInterface::Implement::__cgSystem::setWallpaper(IN const std::string& path)
+void cloudgameZero::Interface::sigmaInterface::Implement::__cgSystem::setWallpaper(_In_ const std::string& path)
 {
 	SystemParametersInfoA(SPI_SETDESKWALLPAPER, 0, (PVOID)path.c_str(), SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
 }

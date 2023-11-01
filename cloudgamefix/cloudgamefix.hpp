@@ -21,6 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
 /*
 		__                __                        _____
   _____/ /___  __  ______/ /___ _____ _____ ___  __/__  /  ___  _________
@@ -29,17 +30,30 @@ SOFTWARE.
 \___/_/\____/\__,_/\__,_/\__, /\__,_/_/ /_/ /_/\___/____/\___/_/   \____/
 						/____/
 */
+
 /*
-关于本库：
-此库是提供给网易云游戏Windows系统的C++"简易"程序库，提供了大量工具集用于辅助开发(有没有一种可能，这个头文件有200kb左右)
-此文件封装了WinToast，jthread等库，向派生接口提供支持
-同时提供了日志库用于记录程序运行
-注：
-此库需要安装第三方库，且需要C++20标准支持
-需要配置vcpkg安装
-备注：
-WinToast的许可证声明已在命名空间上面放置，在分发时需保留，否则后果自负
-rapidjson同样!
+Chinese:
+	关于本库：
+	此库是提供给网易云游戏Windows系统的C++"简易"程序库，提供了大量工具集用于辅助开发(有没有一种可能，这个头文件有200kb左右)
+	此文件封装了WinToast，jthread等库，向派生接口提供支持
+	同时提供了日志库用于记录程序运行
+	注：
+	此库需要安装第三方库，且需要C++20标准支持
+	需要配置vcpkg安装
+	备注：
+	WinToast的许可证声明已在命名空间上面放置，在分发时需保留，否则后果自负
+	rapidjson同样!
+EN:
+	About the library:
+	This library is a C++" easy "program library for NetEase Cloud game Windows system, which provides a large number of toolsets to assist development (is there a possibility, this header file is about 200kb)
+	This file encapsulates libraries like WinToast, jthread to provide support to the derived interface
+	At the same time, a log library is provided to record the execution of the program
+	Note:
+	This library requires third-party libraries to be installed and is supported by the C++20 standard
+	vcpkg installation needs to be configured
+	Remarks:
+	The license statement for WinToast is placed on the namespace and must be retained when distributing at your own risk
+	rapidjson too!
 */
 #pragma once
 #ifndef CLOUDGAME_FIX_ZERO_H
@@ -47,33 +61,46 @@ rapidjson同样!
 #define WIN32_LEAN_AND_MEAN
 
 /*
-决定是否启用错误函数异常，如果禁用。
-每次编译时会发出警告，且出现错误时仅仅只会打印异常信息，甚至可能会导致不明确行为
-并且这样做并不会完全禁用异常，因为在运行期的标准库和来自API的异常仍然可以被激活
+Chinese:
+	决定是否启用错误函数异常，如果禁用。
+	每次编译时会发出警告，且出现错误时仅仅只会打印异常信息，甚至可能会导致不明确行为
+	并且这样做并不会完全禁用异常，因为在运行期的标准库和来自API的异常仍然可以被激活
+EN:
+	Decide whether to enable error function exceptions, if disabled.
+	A warning is issued every time it is compiled, and if there is an error, it simply prints an exception message, which may even result in unclear behavior
+	And doing so doesn't completely disable exceptions, because the standard library and exceptions from the API can still be activated at runtime
 */
 #define EnableZeroLibrayExceptions true
 #define EnableZeroSAL true
-#define DisableVisualStudio2019_Warn_cg false //如果您使用Visual Studio 2019，请将其设置为true，否则每次编译时都会弹出警告
+#define DisableVisualStudio2019_Warn_cg false //If you're using Visual Studio 2019, set it to true, otherwise a warning will pop up every time you compile
 
 /*
-关于编译检察域，我们将在编译前进行一些逻辑判断
-首先，我们将一些警告给禁用一下
-随后，我们检查上面的错误函数异常设置以及一些编译设置
-再然后，我们检查是否有安装依赖库，因为本库引用了一些第三方库
-随后，我们还要检查是否是MSVC编译器来编译这个库，因为使用了一些MSVC特有的库以及一些拓展
-最后，我们检查是否达到C++20标准，因为库使用了C++20的特性和库
+Chinese:
+	关于编译检察域，我们将在编译前进行一些逻辑判断
+	首先，我们将一些警告给禁用一下
+	随后，我们检查上面的错误函数异常设置以及一些编译设置
+	再然后，我们检查是否有安装依赖库，因为本库引用了一些第三方库
+	随后，我们还要检查是否是MSVC编译器来编译这个库，因为使用了一些MSVC特有的库以及一些拓展
+	最后，我们检查是否达到C++20标准，因为库使用了C++20的特性和库
 
-除了错误函数异常，其它都会通过静态断言来检查
+	除了错误函数异常，其它都会通过静态断言来检查
+EN:
+	Regarding the compilation inspection domain, we will make some logical judgments before compilation
+	First, let's disable some warnings
+	Subsequently, we examine the error function exception Settings above as well as some compilation Settings
+	Next, we check if any dependencies are installed, as this library references some third-party libraries
+	Next, we check that the MSVC compiler is compiling the library, because it uses some MSVC-specific libraries and extensions
+	Finally, we check whether the C++20 standard is met, since the library uses C++20 features and libraries
 */
 
-/* 编译检查域开始 */
+/* The compilation check field begins */
 
-/* 此处我们将警告进行禁用 */
+/* Here we disable warnings */
 #if defined(CLOUDGAME_FIX_ZERO_DISABLE_WARNING)
 #undef CLOUDGAME_FIX_ZERO_DISABLE_WARNING
 #endif // if defined(CLOUDGAME_FIX_ZERO_DISABLE_WARNING)
 #ifndef CLOUDGAME_FIX_ZERO_DISABLE_WARNING
-#define CLOUDGAME_FIX_ZERO_DISABLE_WARNING 4267 4101 26451 26819 33010 26495 6388 4305 4018 4244 6011 26493 26451 26439
+#define CLOUDGAME_FIX_ZERO_DISABLE_WARNING 4267 4101 26451 26819 33010 26495 6388 4305 4018 4244 6011 26493 26451 26439 5082
 #endif //ifndef CLOUDGAME_FIX_ZERO_DISABLE_WARNING
 
 #pragma warning(push)
@@ -89,7 +116,7 @@ rapidjson同样!
 #endif //ifndef NO_ZEROLIBRAY_WARNING
 #endif //EnableZeroSAL
 #endif //if !EnableZeroLibrayExceptions
-/* 不要去除这个行！ */
+/* Do not remove this row! */
 
 #ifndef __Has_dependent_libfile_cg
 #define __Has_dependent_libfile_cg __has_include("rapidjson/writer.h") && __has_include("boost/stacktrace.hpp")
@@ -135,13 +162,13 @@ static_assert(__Is_MSVC_And_Support_cloudgame_juzi,
 
 static_assert(__Has_reached_cpp20_standard_cg, "You Must Using C++20 Standard To Compile This Libray");
 
-/* 编译检查域结束 */
+/* The compilation check field is over */
 
 #if __Has_reached_cpp20_standard_cg
 #define MakeCloudgameInterface(X) struct __declspec(uuid(X)) __declspec(novtable)
 #endif
 
-/* 开始构建命名空间框架 */
+/* Start building the namespace framework */
 namespace cloudgameZero
 {
 	#if !__Has_reached_cpp20_standard_cg
@@ -245,10 +272,11 @@ namespace cloudgameZero
 	{
 	}
 }
-/* 如果用户在使用C++17及以下标准编译时，命名空间仅会显示框架 .*/
+/* If you compile with C++17 or below, the namespace will only show frames .*/
 
 /* Windows SDK And C++ Standard Libray Files | Windows SDK默认提供的库以及C++20提供的标准库 */
 #include <map>
+#include <set>
 #include <io.h>
 #include <span>
 #include <mutex>
@@ -330,6 +358,7 @@ using namespace Windows::Foundation;
 
 /**
  * 此库的所有注释文档和文档将采用英文来标记！
+ * All comments and documentation for this library will be marked up in English!
  */
 
 #if __Has_reached_cpp20_standard_cg
@@ -337,6 +366,27 @@ namespace cloudgameZero
 {
 	template<typename ret, typename... type>
 	using delegate = std::function<ret(type...)>;
+
+	template<typename T>
+	static std::basic_string<T> format(std::basic_string<T> fmt, ...)
+	{
+		int _Result = -1;
+		std::size_t _BufferCount = 512;
+		std::basic_string<T> ret(_BufferCount, std::is_same_v<T, char> ? '0' : L'0');
+		va_list _ArgList;
+		__crt_va_start(_ArgList, fmt.c_str());
+		if constexpr (std::is_same_v<T, char>)
+		{
+			_Result = _vsprintf_s_l(&ret[0], _BufferCount, fmt.c_str(), NULL, _ArgList);
+		}
+		else if constexpr (std::is_same_v<T, wchar_t>)
+		{
+			_Result = _vswprintf_s_l(&ret[0], _BufferCount, fmt.c_str(), NULL, _ArgList);
+		}
+		__crt_va_end(_ArgList);
+		ret.resize(_Result < 0 ? -1 : _Result);
+		return ret;
+	}
 
 
 	/*
@@ -356,7 +406,7 @@ namespace cloudgameZero
 		constexpr std::string_view versionConf = "cloudgame-fix_zero 2.10 pre-build zero Private sigma | The C++ Edition";
 		constexpr std::string_view _USER_cloudpc = "netease";
 		
-		//用于后期库的基本安全功能处理
+		//It is used to handle the basic security functions of the later library
 		namespace Secutriy
 		{
 			static std::mutex mutexLock;
@@ -365,7 +415,7 @@ namespace cloudgameZero
 			constexpr std::string_view lnkPathRegexNoEscape = "^([a-z]|[A-Z]){1}:/.+.(lnk)$";
 		}
 		
-		/* 为curl提供的两个回调临时函数 */
+		/* Two callback temporary functions for curl */
 		constexpr auto curlResponseCallBack = 
 			[](char* ptr, size_t size, size_t nmemb, void* userdata)
 			{
@@ -389,7 +439,7 @@ namespace cloudgameZero
 			static std::mutex mutex;
 		}
 		
-		/* 用来创建默认日志profile */
+		/* Used to create a default log profile */
 		constexpr std::string_view logconfig_json = R"(
 		{
 			"logFormatTime": "[%d-%02d-%02d %02d:%02d:%02d %03d]",
@@ -419,6 +469,7 @@ namespace cloudgameZero
 			},
 			"EnableThreadSecurity": true
 		})";
+
 		template<typename T>
 		concept number_string = !std::is_integral_v<T> && !std::is_enum_v<T>;
 
@@ -458,6 +509,7 @@ namespace cloudgameZero
 		};
 
 		static std::fstream* logFileStream;
+
 		static bool logSession;
 
 		static const std::map<cloudgameZero::Infomation::level, std::string> levels = {
@@ -472,11 +524,15 @@ namespace cloudgameZero
 
 		static const std::locale chs("chs");
 		static const std::locale _Clocale("C");
+
+		static std::map<std::string,std::set<std::string>> regMark;
+
+		static const std::atomic_bool isCloudPC = !std::filesystem::exists("E:\\Builds");
 	}
 
 	using logLevel = Infomation::level;
 
-	/* cloudgameZero提供的单独句柄，用于实现日志库功能 */
+	/* A separate handle provided by cloudgameZero to implement the logging library functionality */
 	static const HANDLE CONSOLE_OUTPUT_HANDLE = GetStdHandle(STD_OUTPUT_HANDLE);
 
 	/* A simple function provided for a specific class of output log content, while identifying the current publication mode status.*/
@@ -505,15 +561,17 @@ namespace cloudgameZero
 	/**
 	* \brief This section was written on 2023/7/23.
 	* \brief Print debug information to the console and clear the buffer.
-	* \brief Comments:
+	* \brief notes:
 	* \brief This function differs from DEBUG_MESSAGE in that it uses std::wcerr.
 	* \brief Compilation will pass if an object exported by std::wostream accepts the data type of 'msg'; otherwise, it will fail.
 	* \brief -----------------------The following section was written on 2023/8/5-------------------------------
 	* \brief This function checks the stream state after printing. If the stream is corrupted, it will temporarily clear the stream data, set the locale to 'chs', and then reprint the text.
 	* \brief If Foundation::Tool's string conversion functions are used, it may trigger stream corruption, causing std::wcout to attempt to repair and output the string again.
-	* \param msg A generic parameter.
 	* \brief -----------------------The following section was written on 2023/9/14-------------------------------
 	* \brief If the function is passed a std::exception, it will directly print the string content from LibError.
+	* \brief -----------------------The following section was written on 2023/9/20-------------------------------
+	* \brief This function does not check the state of the stream after printing
+	* \tparam msg : A generic parameter.
 	*/
 	template<typename Ty>
 	void PrintError(Ty msg)
@@ -557,28 +615,24 @@ namespace cloudgameZero
 	}
 
 	/**
-	 * \brief 此部分写于2023/7/23
-	 * \brief 将调试信息打印到控制台，同时清除缓冲区.
-	 * \brief 批注
-	 * \brief 此函数与PrintError使用对象区别在于本函数使用std::wcout
-	 * \brief 如果std::wostream导出的对象接受msg的数据类型，则编译通过，否则编译失败
-	 * \brief -----------------------以下部分写于2023/8/5-------------------------------
-	 * \brief 此函数在打印完成后将检测流状态，如果流损坏，它将会临时清除流的数据，设置locale为chs，随后重新打印文字
-	 * \brief 如果使用了Foundation::Tool的字符串转换函数，可能会导致触发流损坏导致std::wcout尝试修复并再次输出字符串
-	 * \param msg 一个泛型参数
-	 */
+	* \brief This section was written on 2023/7/23
+	* \brief prints debug information to the console and clears the buffer.
+	* \brief notes
+	* \brief The difference between this function and PrintError, which uses objects, is that it uses std::wcout
+	* \brief std::wostream compiles if the exported object accepts the data type msg, otherwise it fails
+	* \brief -----------------------The following section was written on 2023/8/5-------------------------------
+	* \brief This function checks the state of the stream after printing, and if the stream is corrupted, it temporarily clears the stream data, sets the locale to chs, and reprints the text
+	* \brief If Foundation::Tool's string conversion function is used, it may corrupt the trigger stream causing std::wcout to try to fix it and output the string again.
+	* \brief -----------------------The following section was written on 2023/9/20-------------------------------
+	* \brief This function does not check the state of the stream after printing
+	* 
+	* \tparam str : A generic argument
+	*/
 	template<class Ty>
 	void DEBUG_MESSAGE(Ty str)
 	{
 		std::unique_lock<std::mutex> lock(Infomation::Secutriy::mutexLock);
-		if constexpr (std::is_same_v<Ty, std::exception>)
-		{
-			std::exception& err = str;
-			std::wclog << err.what();
-			std::wclog.imbue(std::locale("C"));
-			std::wclog << std::endl;
-		}
-		else if constexpr (std::is_same_v<Ty, std::string>)
+		if constexpr (std::is_same_v<Ty, std::string>)
 		{
 			std::wclog.imbue(std::locale("chs"));
 			std::wclog << str.c_str();
@@ -608,13 +662,13 @@ namespace cloudgameZero
 	* \brief 'error' must be derived from std::exception, so most exceptions in this library use standard library exceptions.
 	* \brief And only objects are allowed to be passed.
 	*
-	* \param error : The error to be thrown.
+	* \tparam error : The error to be thrown.
 	*/
 	template<Infomation::stdexcept_ref T>
 	static void LibError(T error)
 	{
 	#if EnableZeroSAL
-	static_assert(EnableZeroLibrayExceptions == true, "Exception detection is disabled. Please set the EnableZeroSAL macro to false to compile this code, or library functionality may be compromised.");
+	static_assert(EnableZeroLibrayExceptions, "Exception detection is disabled. Please set the EnableZeroSAL macro to false to compile this code, or library functionality may be compromised.");
 	/* Here, we use a static_assert to prevent users from disabling exceptions since library functions rely on them. */
 	#endif
 	#if EnableZeroLibrayExceptions
@@ -630,7 +684,7 @@ namespace cloudgameZero
 	* \brief This section was written on 2023/9/24.
 	* \brief Converts a character sequence to an integer.
 	*
-	* \param string : The character sequence to be converted.
+	* \tparam string : The character sequence to be converted.
 	* \param idx : The index value of the first unconverted character.
 	* \param base : The numeric base to be used.
 	* \return Integer
@@ -644,7 +698,7 @@ namespace cloudgameZero
 		{
 			if (string[0] < '0' || string[0] > '9')
 			{
-				LibError(std::runtime_error("To ensure proper parsing, please make sure the first character is a digit."));
+				LibError(std::invalid_argument("To ensure proper parsing, please make sure the first character is a digit."));
 			}
 			int result = std::stoi(/* The constructor will be called here, and the version to use is selected through overloading. */ string, /* The remaining parameters are forwarded to the function as usual. */ idx, base);
 			return result;
@@ -659,8 +713,9 @@ namespace cloudgameZero
 
 	/**
 	 * \brief This section was written on 2023/9/24.
+	 * \brief Converts a character sequence to an long
 	 * 
-	 * \param string : The character sequence to be converted.
+	 * \tparam string : The character sequence to be converted.
 	 * \param idx : The index value of the first unconverted character.
 	 * \param base : The numeric base to be used.
 	 * \return Long
@@ -674,7 +729,7 @@ namespace cloudgameZero
 		{
 			if (string[0] < '0' || string[0] > '9')
 			{
-				LibError(std::runtime_error("To ensure proper parsing, please make sure the first character is a digit."));
+				LibError(std::invalid_argument("To ensure proper parsing, please make sure the first character is a digit."));
 			}
 			long result = std::stol(/* The constructor will be called here, and the version to use is selected through overloading. */ string, /* The remaining parameters are forwarded to the function as usual. */ idx, base);
 			return result;
@@ -687,7 +742,16 @@ namespace cloudgameZero
 		return -1;
 	}
 
-	template<typename T>
+	/**
+	 * \brief This section was written on 2023/9/24.
+	 * \brief Converts a character sequence to an long long.
+	 *
+	 * \tparam string : The character sequence to be converted.
+	 * \param idx : The index value of the first unconverted character.
+	 * \param base : The numeric base to be used.
+	 * \return Long Long
+	 */
+	template<Infomation::number_string T>
 	static inline long long strToLongLong(const T string, size_t* idx = nullptr, int base = 10)
 	{
 		static_assert(!std::is_integral_v<T>, "Not supported for integers as this function is intended for converting strings to integers.");
@@ -696,7 +760,7 @@ namespace cloudgameZero
 		{
 			if (string[0] < '0' || string[0] > '9')
 			{
-				LibError(std::runtime_error("To ensure proper parsing, please make sure the first character is a digit."));
+				LibError(std::invalid_argument("To ensure proper parsing, please make sure the first character is a digit."));
 			}
 			long long result = std::stoll(
 				/* Passed to the constructor here, selecting the version through overloading */
@@ -712,10 +776,27 @@ namespace cloudgameZero
 		return -1;
 	}
 
-	/* 基于jthread封装的线程池 */
+	/**
+	 * \brief A simple thread pool class for managing a group of worker threads to execute tasks in parallel.
+	 *
+	 * ThreadPool allows you to submit tasks and execute them asynchronously using a pool of threads. It maintains a
+	 * thread queue, with each thread looping to perform tasks until the thread pool is destroyed.
+	 *
+	 * \note This thread pool class does not support thread cancellation or pausing. It is suitable for scenarios
+	 * where parallel execution of tasks is needed.
+	 *
+	 * \param numThreads The number of worker threads to initialize the thread pool with.
+	*/
 	class ThreadPool
 	{
 	public:
+
+	   /**
+	   * \brief This section was written on 2023/9/10
+	   * \brief Construct a thread pool object and initialize the specified number of worker threads.
+	   *
+	   * \param numThreads The number of worker threads to create.
+	   */
 		ThreadPool(int numThreads) : stop(false)
 		{
 			for (int i = 0; i < numThreads; i++)
@@ -743,6 +824,13 @@ namespace cloudgameZero
 			}
 		}
 
+		/**
+		* \brief This section was written on 2023/9/10
+		* \brief Destructor that destroys the thread pool object and waits for all threads to finish their tasks.
+		*
+		* The destructor sets the stop flag, notifies all worker threads to stop, and waits for them to complete their
+		* current tasks and exit.
+		*/
 		~ThreadPool()
 		{
 			{
@@ -756,6 +844,16 @@ namespace cloudgameZero
 			}
 		}
 
+		/**
+		* \brief Submit a task to the thread pool and wait for a worker thread to execute it.
+		*
+		* \tparam Fn The type of the callable object, usually a function or lambda.
+		* \tparam Args The types of the arguments.
+		* \param Func The callable object to execute.
+		* \param args The arguments for the callable object.
+		*
+		* After submitting a task, one of the worker threads in the pool will asynchronously execute the task.
+		*/
 		template<typename Fn, typename... Args>
 		void submitTask(Fn&& Func, Args&&... args)
 		{
@@ -766,6 +864,7 @@ namespace cloudgameZero
 			}
 			cond.notify_one();
 		}
+
 	private:
 		std::vector<std::jthread> Threads;
 		std::queue<std::function<void()>> tasks;
@@ -864,60 +963,68 @@ namespace cloudgameZero
 	public:
 		EventBus() = default;
 
+		/**
+		* \brief This section was written on 2023/10/1
+		* \brief Constructor for subscribing to an event with a callback function.
+		* \param eventName The name of the event.
+		* \param func The callback function without additional data.
+		* 
+		*/
 		EventBus(const std::string& eventName, delegate<void> func)
 		{
 			subscribe(eventName, func);
 		}
 
+		/**
+		* \brief This section was written on 2023/10/1
+	    * \brief Constructor for subscribing to an event with a callback function that takes additional data.
+	    * \param eventName The name of the event.
+	    * \param func The callback function with additional data.
+	    */
 		EventBus(const std::string& eventName, delegate<void, void*> func)
 		{
 			subscribe(eventName, func);
 		}
 
-		/**
-		 * \brief 创建事件线程队列.
-		 * \brief 当订阅者回调的数量超过线程池的大小时，会进行线程池的释放和重新创建，以适应更多的订阅者。
-		 * \param eventName 事件名
-		 * \param size 事件队列大小
-		 * 
-		 */
+		/*
+		* \brief This section was written on 2023/10/5
+		* \brief Create an event thread queue. The thread pool is expanded if the number of subscribers exceeds the pool's size.
+		* \param eventName The name of the event.
+		* \param size The size of the event queue.
+		*/
 		void createEvent(const std::string& eventName,size_t& size)
 		{
 			using namespace Infomation::Event;
 			auto itr = subscribers.find(eventName);
 			if (itr == subscribers.end())
 			{
-				/* 如果创建了新事件，我们需要制作一个新线程队列来执行事件 */
+				// Create a new thread queue to execute the event if it's a new event.
 				pools[eventName] = std::make_unique<ThreadPool>(static_cast<int>(size));
 			}
 			else
 			{
-				/*
-				如果是修改事件大小，我们就判断订阅者回调有多少个，如果大于了我们会进行队列扩容 
-				*/
+				// If modifying the event size, check the number of subscribers. If it exceeds 'size,' expand the queue.
 				if (subscribers[eventName].size() >= size)
 				{
-					/* 释放掉线程池 */
+					// Release the existing thread pool.
 					pools[eventName].release();
 					while (subscribers[eventName].size() <= size)
 					{
-						size++; //增加队列容量
+						size++; //Increase the queue capacity.
 					}
-					//在此处我们更新size，直到这个size小于订阅者的队列数量
+					size *= 2;
+					//Update the 'size' until it's less than the number of subscribers and create a new thread pool.
 					pools[eventName] = std::make_unique<ThreadPool>(static_cast<int>(size));
-					/* 多创建10个线程 */
 				}
 			}
 		}
 
 		/**
-		 * \brief 向系统发送这个事件.
-		 * \brief 如果这个事件存在于订阅列表中，将通过异步线程执行存储在订阅列表中的函数
-		 *
-		 * \param eventName 事件名
-		 * \param res 若要传入额外信息，此处为要传入信息变量的地址
-		 * \param 注：最好使用static变量来存储需要传入的信息，防止栈区清理内存
-		 */
+		* \brief This section was written on 2023/9/25
+		* \brief Send an event to the system. If the event is present in the subscription list, execute the functions stored in the list asynchronously.
+		* \param eventName The name of the event.
+		* \param res A pointer to additional information (optional).
+		*/
 		void post(const std::string& eventName,void* res = nullptr)
 		{
 			using namespace Infomation::Event;
@@ -938,11 +1045,11 @@ namespace cloudgameZero
 		}
 
 		/**
-		 * \brief 用于订阅不需要额外信息的事件.
-		 * 
-		 * \param eventName 事件名
-		 * \param callback 回调函数。函数签名为：void()
-		 * \return 返回订阅id
+		 * \brief This section was written on 2023/9/25
+		 * \brief Subscribe to an event without additional data.
+		 * \param eventName The name of the event.
+		 * \param callback The callback function with the signature: void().
+		 * \return The subscription ID.
 		 */
 		inline int subscribe(const std::string& eventName,delegate<void> callback)
 		{
@@ -987,6 +1094,7 @@ namespace cloudgameZero
 			using namespace Infomation::Event;
 			std::unique_lock lock(mutex);
 			auto itr = subscribers.find(eventName);
+			itr->second.erase(id);
 		}
 
 		/**
@@ -1016,6 +1124,7 @@ namespace cloudgameZero
 		using native_handle_type = std::thread::native_handle_type;
 
 		explicit ThreadPlatform() = default;
+
 		/**
 		 * \brief 此部分写于2023/7/25
 		 * \brief 有参构造函数
@@ -2076,7 +2185,7 @@ namespace cloudgameZero
 				HSTRING_HEADER header;
 			};
 
-			/* 抽象基类，来自：ABI::Windows::Foundation::DateTime */
+			/* A Abstract Class From ABI::Windows::Foundation::DateTime */
 			interface InternalDateTime : ABI::Windows::Foundation::IReference<ABI::Windows::Foundation::DateTime>
 			{
 				static INT64 Now(void)
@@ -2096,19 +2205,15 @@ namespace cloudgameZero
 			};
 
 			/*
-			 * 这是基础的WindowsHook包装器
-			 * 关于Basic_WindowsHook.
-			 * 此类仅有一个成员函数为纯虚函数
-			 * 如果要访问Basic_WindowsHook
-			 * 在cloudgameZero::Foundation::Tool::WindowsZero::Event中会提供对这个的实现
-			 * 
-			 * 此类提供的接口仅为消息钩子
-			 * 并不是函数钩子
-			 * 且回调函数需要遵守HOOKPROC原型，且此部分
-			 * 库并不会提供实现，需要自行实现
-			 * 更多信息请参考：
+			 * This is a basic WindowsHook wrapper.
+			 * This class has only one member function as a pure virtual function.
+			 * To access Basic_WindowsHook, implementations are provided in cloudgameZero::Foundation::Tool::WindowsZero::Event.
+			 *
+			 * The interfaces provided by this class are only for message hooks, not function hooks.
+			 * Callback functions need to adhere to the HOOKPROC prototype, and this library does not provide an implementation for that. You need to implement it yourself.
+			 * For more information, please refer to:
 			 * https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowshookexa
-			 * 及其附属的文档
+			 * and its associated documentation.
 			 */
 			class Basic_WindowsHook
 			{
@@ -2118,40 +2223,39 @@ namespace cloudgameZero
 				using InstallHookType = cloudgameZero::InstallHookType;
 
 				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 将钩子回调挂载到对象中
+				 * \brief This section was written on 2023/10/05.
+				 * \brief Attaches hook callback to the object.
 				 *
-				 * \param callback 回调函数指针
+				 * \param callback Callback function pointer.
 				 */
 				void setCallBack(HOOKPROC callback) throw()
 				{
 					std::lock_guard lock(mtx);
 					if (!callback)
 					{
-						LibError(std::invalid_argument("callback不能为空"));
+						LibError(std::invalid_argument("Callback cannot be null."));
 					}
 					HOOKPROC_FUN = callback;
 				}
 
 				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 将模块句柄挂载到钩子中
-				 * \brief 批注：
-				 * \brief 如果开启钩子时，没有模块句柄，则自动调用这个函数获取自己的句柄
+				 * \brief This section was written on 2023/10/05.
+				 * \brief Attaches module handle to the hook.
+				 * \brief Note: If a module handle is not provided when starting the hook, it will automatically use the application's instance handle.
 				 *
-				 * \param Module 默认由GetModuleHandle提供应用程序自身的实例，此处也可为别的模块的实例
-				 * \param 备注：析构函数会调用endHook，在endHook中，会调用FreeLibray来释放资源，请留意
+				 * \param Module By default, GetModuleHandle provides the instance of the application itself, but you can use it for other modules.
+				 * \brief Note: The destructor calls endHook, which uses FreeLibrary to release resources, so be aware.
 				 */
-				inline void setMoudle(HMODULE Module = GetModuleHandle(NULL)) noexcept
+				inline void setModule(HMODULE Module = GetModuleHandle(NULL)) noexcept
 				{
 					this->Module = Module;
 				}
 
 				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 设置与HOOK回调关联的标识符
+				 * \brief This section was written on 2023/10/05.
+				 * \brief Sets the identifier associated with the HOOK callback.
 				 *
-				 * \param id 要与HOOK回调关联的线程的标识符。 对于桌面应用，如果此参数为零，则挂钩过程与调用线程在同一桌面中运行的所有现有线程相关联。
+				 * \param id Identifier of the thread to associate with the HOOK callback. For desktop applications, if this parameter is zero, the hook procedure is associated with all existing threads running in the same desktop as the calling thread.
 				 */
 				inline void setThreadId(DWORD id = NULL) noexcept
 				{
@@ -2159,43 +2263,43 @@ namespace cloudgameZero
 				}
 
 				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 将HOOK安装到线程中监听.
+				 * \brief This section was written on 2023/10/05.
+				 * \brief Installs the HOOK to listen within the thread.
 				 *
-				 * \param InstallType 取自InstallHookType中的枚举，要安装的HOOK回调的类型
-				 */
+				 * \param InstallType Taken from the enumeration InstallHookType, the type of HOOK callback to install.
+				 */ 
 				virtual void startHook(InstallHookType InstallType) throw() = 0;
 				/**
-				 * 此处需要重写方法，如果不想重写，则请使用默认提供的WindowsHookA以及WindowsHookW.
-				 * 应实现的功能：
-				 * 让函数能够调用SetWindowsHookExA，将返回值赋给HOOK句柄，监听事件，安装回调函数.
-				 */
+				  * This method needs to be overridden. If you prefer not to override it, you can use the default WindowsHookA and WindowsHookW provided.
+				  * Functionality to be implemented:
+				  * Allows the function to call SetWindowsHookExA, assigns the return value to HOOK handle, listens to events, and installs the callback function.
+				  */
 
-				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 决定是否清理模块.
-				 * \brief 如果希望在结束HOOK监听时释放资源，请调用此函数，并传入true.
-				 *
-				 * \param free 默认为false，如果为true，则endHook会清理模块
-				 */
+				 /**
+				  * \brief This section was written on 2023/10/05.
+				  * \brief Determines whether to clean up the module.
+				  * \brief If you want to release resources when ending HOOK listening, call this function with 'true'.
+				  *
+				  * \param free Default is 'false'. If 'true', endHook will clean up the module.
+				  */
 				inline void setFree(bool free = false)
 				{
 					this->free = free;
 				}
 
 				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 停止HOOK的监听.
+				 * \brief This section was written on 2023/10/05.
+				 * \brief Stops listening to the HOOK.
 				 */
 				inline void endHook() throw()
 				{
 					std::lock_guard lock(mtx);
-					if (Handle) 
+					if (Handle)
 					{
 						UnhookWindowsHookEx(Handle);
-						HANDLE ThreadHanle = thread.native_handle();
+						HANDLE ThreadHandle = thread.native_handle();
 						thread.detach();
-						SuspendThread(ThreadHanle);
+						SuspendThread(ThreadHandle);
 						if (Module && free)
 						{
 							FreeLibrary(Module);
@@ -2208,10 +2312,10 @@ namespace cloudgameZero
 				}
 
 				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 获取HOOK的句柄.
+				 * \brief This section was written on 2023/10/05.
+				 * \brief Retrieves the handle of the HOOK.
 				 *
-				 * \return 返回对象保存的只读句柄
+				 * \return Returns a read-only handle stored in the object.
 				 */
 				inline operator const HHOOK() noexcept
 				{
@@ -2220,10 +2324,10 @@ namespace cloudgameZero
 				}
 
 				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 获取HOOK的句柄.
+				 * \brief This section was written on 2023/10/05.
+				 * \brief Retrieves the handle of the HOOK.
 				 *
-				 * \return 返回对象保存的只读句柄
+				 * \return Returns a read-only handle stored in the object.
 				 */
 				inline const HHOOK getHook() noexcept
 				{
@@ -2232,12 +2336,11 @@ namespace cloudgameZero
 				}
 
 				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 获取线程的ID
-				 * \brief 批注：
-				 * \brief 如果线程未运行，则返回0，在调用startHook时，需要等待1毫秒才能获取
+				 * \brief This section was written on 2023/10/05.
+				 * \brief Retrieves the thread's ID.
+				 * \brief Note: If the thread is not running, it returns 0. When calling startHook, you need to wait for 1 millisecond to retrieve the ID.
 				 *
-				 * \return 返回线程ID
+				 * \return Returns the thread ID.
 				 */
 				inline DWORD getHookThreadId() noexcept
 				{
@@ -2250,12 +2353,11 @@ namespace cloudgameZero
 				}
 
 				/**
-				 * \brief 此部分写于2023/10/05.
-				 * \brief 获取线程的地址
-				 * \brief 批注：
-				 * \brief 如果线程未运行，则返回nullptr，在调用startHook时，需要等待1毫秒才能获取
+				 * \brief This section was written on 2023/10/05.
+				 * \brief Retrieves the thread's address.
+				 * \brief Note: If the thread is not running, it returns nullptr. When calling startHook, you need to wait for 1 millisecond to retrieve the address.
 				 *
-				 * \return 返回线程的地址（以void*)
+				 * \return Returns the thread's address (as void*).
 				 */
 				inline void* getThreadAddress() noexcept
 				{
@@ -2481,15 +2583,11 @@ namespace cloudgameZero
 					HANDLE Handle = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
 					if (!Handle)
 					{
-						using namespace Foundation::dynamincLibrayFunc::function::unstable;
-						RtlAdjustPrivilege(SeDebugPrivilege, TRUE, FALSE, 
-							[]
-							{
-								static INT value = 0;
-								return &value; 
-							}
-						());
+						static INT value = 0;
+						using namespace Foundation::dynamincLibrayFunc::function;
+						unstable::RtlAdjustPrivilege(unstable::SeDebugPrivilege, TRUE, FALSE,&value);
 						Handle = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+						unstable::RtlAdjustPrivilege(unstable::SeDebugPrivilege, FALSE, FALSE, &value);
 						if (!Handle)
 						{
 							return -1;
@@ -3022,7 +3120,6 @@ namespace cloudgameZero
 			/* Windows功能区 */
 			inline namespace WindowsZero
 			{
-				/* 任务栏区域 */
 				inline namespace TaskBar
 				{
 					static NTSTATUS fakeToExplorer()
@@ -4379,7 +4476,7 @@ namespace cloudgameZero
 							}
 							if (!Module)
 							{
-								setMoudle();
+								setModule();
 							}
 							if (this->Id == 0)
 							{
@@ -4406,7 +4503,7 @@ namespace cloudgameZero
 								);
 							}
 						}
-						/* 结束 */
+						/* End */
 					};
 					/* WindowsHookA */
 
@@ -4417,6 +4514,7 @@ namespace cloudgameZero
 						{
 							endHook();
 						}
+
 						/**
 						 * \brief 此部分写于2023/10/05.
 						 * \brief 将HOOK安装到线程中监听.
@@ -4432,7 +4530,7 @@ namespace cloudgameZero
 							}
 							if (!Module)
 							{
-								setMoudle();
+								setModule();
 							}
 							if (!Id)
 							{
@@ -6266,43 +6364,12 @@ namespace cloudgameZero
 		};
 
 		/**
-		* \brief 此部分写于2023/7/27
-		* \brief 此函数用于获取cgSystem和cgFix的IUnknown接口
-		* \brief 它将开辟堆区并初始化随后返回指向sigmaInterface封装的一个指针.
-		* \brief 注意：
-		* \brief 此函数的实现是在外部定义的，如果直接使用，将会发生LNK链接错误
-		* \brief 备注，此函数返回IUnknown接口中，重写QueryInterface的方法是允许查询cgFix和cgSystem接口的GUID
-		* \brief 因为cgSystem接口是cgFix的派生类，用于某些接口实现
-		* \brief 如果用户查询使用了cgFix的GUID
-		* \brief 则仅返回cgFix的GUID绑定的对象，而运行cgSystem的函数有可能是通往不明确行为和彻夜调试大会串的车票
-		*
-		* \return 正常情况下，函数将返回cgSystem子类对象的指针
-		* \return 当使用完指针时请务必调用Realease函数归还资源
-		*/
-		static IUnknown* (CALLBACK* cgSystemCreateInstance)();
-
-		/**
-		* \brief 此部分写于2023/7/28
-		* \brief 此函数用于获取cgTool的IUnknown接口
-		* \brief 它将开辟堆区并初始化随后返回指向sigmaInterface封装的一个指针.
-		* \brief 注意：
-		* \brief 此函数的实现是在外部定义的，如果直接使用，将会发生LNK链接错误
-		* \brief 批注
-		* \brief 此函数实例提供的QueryInterface可查询cgTool和cgSoftware以及asciiStyle以及cgTool_s的接口，但同样
-		* \brief 不同接口对接得到的对象如果运行不属于自己的方法，这仍然有可能是通往不明确行为和彻夜调试大会串的车票
-		* \brief 此实例的QueryInterface将供cgTool_s,cgTool,cgSoftware,asciiStyle共享
-		*
-		* \return 正常情况下，函数将返回cgTool子类对象的指针
-		* \return 当使用完指针时请务必调用Realease函数归还资源
-		*/
-		static IUnknown* (CALLBACK* cgToolCreateInstance)();
-
-		/**
 		 * 用于修复网易云游戏系统的接口.
 		 */
 		MakeCloudgameInterface("5DD98957-02FC-4583-A25C-14A69321F2F0")
 		cgFix : public IUnknown
 		{
+		public:
 			enum class mode { cloudgame, cloudpc };
 			virtual BOOL fixSystem() = 0;
 			virtual void fixFile(_In_ mode mode) = 0;
@@ -6314,6 +6381,7 @@ namespace cloudgameZero
 		MakeCloudgameInterface("A3872F59-C8AF-467E-8BF5-DF19FB77149E")
 		cgSystem : public cgFix
 		{
+		public:
 			enum class Theme { Default, white, windows, flower };
 			/**
 			*  \brief 此部分写于2023/7/27
@@ -6664,7 +6732,7 @@ namespace cloudgameZero
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_CGSOFTWARE;	/* 设计基于cgTool安全功能的软件类接口 */
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_ASCIISTYLE;	/* ascii字符画预定义接口 */
 
-				extern IUnknown* Query(const IID& iid);
+				extern IUnknown* Query(_In_ const IID& iid);
 			}
 		}
 
@@ -8366,9 +8434,17 @@ namespace cloudgameZero
 			}
 		}
 
-		static std::list<std::string> TraverseFolder(std::string_view floder)
+		static std::list<std::string> TraverseFolder(_In_ std::string_view floder)
 		{
 			namespace fs = std::filesystem;
+			#if NDEBUG
+			if (floder.empty())
+			{
+				throw std::runtime_error("The String Can't Be Empty");
+			}
+			#else
+			assert(!(floder.empty()));
+			#endif
 			std::list<std::string> list; //创建链表
 			if (fs::exists(floder) && fs::is_directory(floder)) //我们检查这个目录是否存在
 			{
@@ -8377,32 +8453,30 @@ namespace cloudgameZero
 				{
 					list.emplace_back(itr.path().string()); //每次遍历的时候把数据推送给链表存储
 				}
+				return list;
 			}
-			else
+			try
 			{
-				try
+				if (!fs::exists(floder)) //我们检查一下这是否是个文件且是不是存在的
 				{
-					if (!fs::exists(floder)) //我们检查一下这是否是个文件且是不是存在的
+					//看来函数返回了false，说明它找不到，我们直接return掉就行了
+					return list;
+				}
+				fs::path view(floder); //创建这个路径的实例，如果不存在目录的情况下
+				std::string parent_path = view.parent_path().string(); //我们拿到它的父目录来遍历
+				if (std::filesystem::is_directory(parent_path)) //检查这个父目录是不是真目录
+				{
+					fs::directory_iterator entry(parent_path); //随后创建实例再次遍历
+					for (auto& itr : entry)
 					{
-						//看来函数返回了false，说明它找不到，我们直接return掉就行了
-						return list;
-					}
-					fs::path view(floder); //创建这个路径的实例，如果不存在目录的情况下
-					std::string parent_path = view.parent_path().string(); //我们拿到它的父目录来遍历
-					if (std::filesystem::is_directory(parent_path)) //检查这个父目录是不是真目录
-					{
-						fs::directory_iterator entry(parent_path); //随后创建实例再次遍历
-						for (auto& itr : entry)
-						{
-							list.emplace_back(itr.path().string());
-						}
+						list.emplace_back(itr.path().string());
 					}
 				}
-				catch (std::exception& error)
-				{
-					/* 转发异常给LibError，由Client处理 */
-					LibError(error);
-				}
+			}
+			catch (std::exception& error)
+			{
+				/* 转发异常给LibError，由Client处理 */
+				LibError(error);
 			}
 			return list; //无轮如何都会被返回
 		}
@@ -8441,25 +8515,25 @@ namespace cloudgameZero
 			}
 
 			template<typename... Args>
-			inline void setCurl(const CURLoption option, Args&&... args)
+			inline void setCurl(_In_ const CURLoption option,_In_ Args&&... args)
 			{
 				std::unique_lock<std::mutex> lock(mtx);
-				curl_easy_setopt(Handle, std::forward<Args>(args...));
+				curl_easy_setopt(Handle,option, args...);
 			}
 
-			inline void setUrl(const std::string& url)
+			inline void setUrl(_In_ const std::string& url)
 			{
 				std::unique_lock<std::mutex> lock(mtx);
 				curl_easy_setopt(Handle, CURLOPT_URL, url.c_str());
 			}
 
-			inline void setOperater(operater __operater)
+			inline void setOperater(_In_ operater __operater)
 			{
 				std::unique_lock<std::mutex> lock(mtx);
 				this->_operater = __operater;
 			}
 
-			_NODISCARD rapidjson::Document getJsonDomByRequest(operation method)
+			_NODISCARD rapidjson::Document getJsonDomByRequest(_In_ operation method)
 			{
 				std::string data = sendRequest(method);
 				rapidjson::Document Dom;
@@ -8471,7 +8545,7 @@ namespace cloudgameZero
 				return Dom;
 			}
 
-			std::string sendRequest(operation method)
+			std::string sendRequest(_In_ operation method)
 			{
 				std::unique_lock<std::mutex> lock(mtx);
 				if (_operater != operater::Request)
@@ -8502,7 +8576,7 @@ namespace cloudgameZero
 				return response;
 			}
 
-			CURLcode sendDownloadRequest(operation _operation, std::string filename, bool cover = true)
+			CURLcode sendDownloadRequest(_In_ operation _operation,_In_ std::string filename,_In_opt_ bool cover = true)
 			{
 				std::unique_lock<std::mutex> lock(mtx);
 				if (this->_operater != operater::Download)
@@ -8933,6 +9007,1073 @@ namespace cloudgameZero
 				JObject object;
 				string_t str;
 				size_t idx;
+			};
+		}
+
+		namespace log
+		{
+			template<typename type>
+			concept string = std::is_same_v<type, char> || std::is_same_v<type, wchar_t>;
+
+			template<string type>
+			struct msg
+			{
+				constexpr msg() noexcept = default;
+				constexpr msg(msg&& other) noexcept = default;
+				constexpr msg(Infomation::level level, std::basic_string_view<type> msg) : level(level), _msg(msg)
+				{
+				}
+				Infomation::level level{};
+				std::basic_string_view<type> _msg{};
+				std::basic_string<type> buffer{};
+			};
+
+			template<string type>
+			class zeroLogT
+			{
+			public:
+				static inline zeroLogT<type>* getNoInitLogger(_In_opt_ std::string_view profile = "logConfig.json")
+				{
+					return new zeroLogT<type>(false, profile);
+				}
+
+				static inline zeroLogT<type>* getNoInitLogger(_In_ std::string_view mark, _In_ std::string_view server, _In_opt_ std::string_view profile = "logConfig.json")
+				{
+					return new zeroLogT<type>(false, mark, nullptr, server, profile);
+				}
+
+				static inline zeroLogT<type>* getLogger(_In_opt_ std::string_view profile = "logConfig.json")
+				{
+					return new zeroLogT<type>(true, profile);
+				}
+
+				static inline zeroLogT<type>* getLogger(_In_ std::string_view mark, _In_ std::string_view server, _In_opt_ std::string_view profile = "logConfig.json")
+				{
+					return new zeroLogT<type>(true, mark, nullptr, server, profile);
+				}
+
+				static inline zeroLogT<type>* getLogger(
+					_In_ std::string_view profile,
+					_In_ std::string_view mark,
+					_In_ std::string_view server,
+					_In_opt_ delegate<void, rapidjson::Document&> CallBack = nullptr
+				)
+				{
+					return new zeroLogT<type>(true, profile, CallBack, mark, server);
+				}
+
+				using message = msg<type>;
+
+
+				/**
+				 * Each log class object is a unique instance, so the empty argument and copy constructs and assignment operators will not be provided to the user.
+				 */
+				zeroLogT() = delete;
+				zeroLogT& operator=(zeroLogT<type>& other) = delete;
+				zeroLogT(zeroLogT<type>& other) = delete;
+
+				~zeroLogT()
+				{
+					this->close();
+				}
+
+				void init()
+				{
+					using namespace Foundation;
+					using namespace Foundation::Tool;
+					rapidjson::Document& Dom = conf->getDocment();
+					if (this->hasInit())
+					{
+						DEBUG_MESSAGE("这个实例已经被初始化过了");
+						return;
+					}
+					if (!Dom["logToFile"]["Enable"].GetBool() && !Dom["logToFile"]["Enable"].GetBool())
+					{
+						DEBUG_MESSAGE("为什么你要在两者都不启用的情况下进行初始化，请问这是否是有意而为之?");
+						return;
+					}
+					if (Dom["logToFile"]["Enable"].GetBool())
+					{
+						do {
+							if (fs == nullptr)
+							{
+								fs = new std::fstream;
+							}
+							if (fs->is_open())
+							{
+								break;
+							}
+							std::string dict;
+							if (this->file.empty())
+							{
+								conf->getLogDictionary(dict);
+								if (!std::filesystem::exists(dict))
+								{
+									std::filesystem::create_directories(dict);
+								}
+								std::string filename = conf->parseFileName();
+								dict += filename;
+							}
+							else
+							{
+								dict = this->file;
+							}
+							if (Dom["logToFile"]["append"].GetBool())
+							{
+								fs->open(dict, std::ios::app);
+							}
+							else
+							{
+								fs->open(dict, std::ios::out);
+							}
+							if (!fs->is_open())
+							{
+								throw std::runtime_error("无法打开文件，出现了异常");
+							}
+							this->file = dict;
+							this->EnableFileOut = true;
+						} while (false);
+					}
+					if (Dom["outToTerminal"]["Enable"].GetBool())
+					{
+						DEBUG_MESSAGE("准备获取ostream对象");
+						switch (conf->getLogObjectType())
+						{
+						case logConfig::_ostream::clog:
+						{
+							this->object = &std::clog;
+							break;
+						}
+						case logConfig::_ostream::cout:
+						{
+							this->object = &std::cout;
+							break;
+						}
+						case logConfig::_ostream::cerr:
+						{
+							this->object = &std::cerr;
+							break;
+						}
+						default:
+						{
+							LibError(std::runtime_error("无法获取对象"));
+						}
+						}
+						DEBUG_MESSAGE("准备获取wostream对象");
+						switch (conf->getWideOstreamType())
+						{
+						case logConfig::_wostream::wclog:
+						{
+							this->wobject = &std::wclog;
+							break;
+						}
+						case logConfig::_wostream::wcout:
+						{
+							this->wobject = &std::wcout;
+							break;
+						}
+						case logConfig::_wostream::wcerr:
+						{
+							this->wobject = &std::wcerr;
+							break;
+						}
+						default:
+						{
+							LibError(std::runtime_error("无法获取对象"));
+						}
+						}
+						wobject->imbue(Infomation::chs);
+						this->EnableTerminalOut = true;
+					}
+					this->logTimeFormat = Dom["logFormatTime"].GetString();
+					this->render = Dom["outToTerminal"]["render"].GetBool();
+					this->cleanBuffer = Dom["outToTerminal"]["rootLogger"]["cleanBuffer"]["clean"].GetBool();
+					this->times = Dom["outToTerminal"]["rootLogger"]["cleanBuffer"]["times"].GetUint();
+					this->showUser = Dom["outToTerminal"]["showUser"].GetBool();
+					this->EnableThreadSecurity = Dom["EnableThreadSecurity"].GetBool();
+					this->has_init = true;
+				}
+
+				inline const bool hasInit() noexcept
+				{
+					return this->has_init;
+				}
+
+				/*=================================================================
+				日志类提供了6个等级的成员函数用于记录日志
+				每个等级拥有2个可变参数模板和2个普通成员函数
+				用于处理std::string和std::wstring数据类型
+				模板函数用于通过std::format处理格式化字符串
+				注：
+				logConfig的等级代表最小记录等级，例如等级如果为Trace，则所有等级日志都可见
+				但如果等级为Info，则Trace和Debug将不会被记录，而只是被临时存储到list容器
+				如果编译为Debug模式，库将会生成一个最低记录等级为Trace的配置文件，反之为Info
+				==================================================================*/
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 打印等级为Trace的日志
+				 *
+				 * \param message 消息内容
+				 */
+				void trace(const std::basic_string_view<type> message) throw()
+				{
+					using namespace Infomation;
+					static level lev = Trace;
+					//Here we enable thread locks to prevent resource contention issues
+					std::unique_lock<std::mutex> lock(this->mutex);
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					//Here we generate a log and forward it to the write method to print out the log messages
+					auto logs = this->makeLogs(lev, message.data());
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 格式化日志消息并打印等级为Trace的日志
+				 *
+				 * \param fmt 要格式化的内容
+				 * \param ...args 要格式化的参数
+				 */
+				template<typename... Args>
+				void trace(const std::basic_string_view<type> fmt, Args... args) throw()
+				{
+					using namespace Infomation;
+					static level lev = Trace;
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					std::unique_lock<std::mutex> lock(this->mutex);
+					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+					auto alraedy = Infomation::makeFormat(fmt, args...);
+					auto logs = this->makeLogs(lev, alraedy);
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 打印等级为debug的日志
+				 *
+				 * \param message 消息内容
+				 */
+				void debug(const std::basic_string_view<type> message) throw()
+				{
+					using namespace Infomation;
+					static level lev = Debug;
+					//Here we enable thread locks to prevent resource contention issues
+					std::unique_lock<std::mutex> lock(this->mutex);
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					//Here we generate a log and forward it to the write method to print out the log messages
+					auto logs = this->makeLogs(lev, message.data());
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 格式化日志消息并打印等级为debug的日志
+				 *
+				 * \param fmt 要格式化的内容
+				 * \param ...args 要格式化的参数
+				 */
+				template<typename... Args>
+				void debug(const std::basic_string_view<type> fmt, Args... args) throw()
+				{
+					using namespace Infomation;
+					static level lev = Debug;
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					std::unique_lock<std::mutex> lock(this->mutex);
+					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+					auto alraedy = Infomation::makeFormat(fmt, args...);
+					auto logs = this->makeLogs(lev, alraedy);
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 打印等级为Info的日志
+				 *
+				 * \param message 消息内容
+				 */
+				void info(const std::basic_string_view<type> message) throw()
+				{
+					using namespace Infomation;
+					static level lev = Info;
+					//Here we enable thread locks to prevent resource contention issues
+					std::unique_lock<std::mutex> lock(this->mutex);
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					//Here we generate a log and forward it to the write method to print out the log messages
+					auto logs = this->makeLogs(lev, message.data());
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 格式化日志消息并打印等级为Info的日志
+				 *
+				 * \param fmt 要格式化的内容
+				 * \param ...args 要格式化的参数
+				 */
+				template<typename... Args>
+				void info(const std::basic_string_view<type> fmt, Args... args) throw()
+				{
+					using namespace Infomation;
+					static level lev = Info;
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					std::unique_lock<std::mutex> lock(this->mutex);
+					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+					auto alraedy = Infomation::makeFormat(fmt, args...);
+					auto logs = this->makeLogs(lev, alraedy);
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 打印等级为Warn的日志
+				 *
+				 * \param message 消息内容
+				 */
+				void warn(const std::basic_string_view<type> message) throw()
+				{
+					using namespace Infomation;
+					static level lev = Warn;
+					//Here we enable thread locks to prevent resource contention issues
+					std::unique_lock<std::mutex> lock(this->mutex);
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					//Here we generate a log and forward it to the write method to print out the log messages
+					auto logs = this->makeLogs(lev, message.data());
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 格式化日志消息并打印等级为Warn的日志
+				 *
+				 * \param fmt 要格式化的内容
+				 * \param ...args 要格式化的参数
+				 */
+				template<typename... Args>
+				void warn(const std::basic_string_view<type> fmt, Args... args) throw()
+				{
+					using namespace Infomation;
+					static level lev = Warn;
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					std::unique_lock<std::mutex> lock(this->mutex);
+					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+					auto alraedy = Infomation::makeFormat(fmt, args...);
+					auto logs = this->makeLogs(lev, alraedy);
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 打印等级为Error的日志
+				 *
+				 * \param message 消息内容
+				 */
+				void error(const std::basic_string_view<type> message) throw()
+				{
+					using namespace Infomation;
+					static level lev = Infomation::Error;
+					//Here we enable thread locks to prevent resource contention issues
+					std::unique_lock<std::mutex> lock(this->mutex);
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					//Here we generate a log and forward it to the write method to print out the log messages
+					auto logs = this->makeLogs(lev, message.data());
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 格式化日志消息并打印等级为Error的日志
+				 *
+				 * \param fmt 要格式化的内容
+				 * \param ...args 要格式化的参数
+				 */
+				template<typename... Args>
+				void error(const std::basic_string_view<type> fmt, Args... args) throw()
+				{
+					using namespace Infomation;
+					static level lev = Infomation::Error;
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					std::unique_lock<std::mutex> lock(this->mutex);
+					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+					auto alraedy = Infomation::makeFormat(fmt, args...);
+					auto logs = this->makeLogs(lev, alraedy);
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 打印等级为Fatal的日志
+				 *
+				 * \param message 消息内容
+				 */
+				void fatal(const std::basic_string_view<type> message) throw()
+				{
+					using namespace Infomation;
+					static level lev = Fatal;
+					//Here we enable thread locks to prevent resource contention issues
+					std::unique_lock<std::mutex> lock(this->mutex);
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					//Here we generate a log and forward it to the write method to print out the log messages
+					auto logs = this->makeLogs(lev, message.data());
+					this->write(lev, logs);
+				}
+
+				/**
+				 * \brief 此内容写于2023/8/13.
+				 * \brief 格式化日志消息并打印等级为Fatal的日志
+				 *
+				 * \param fmt 要格式化的内容
+				 * \param ...args 要格式化的参数
+				 */
+				template<typename... Args>
+				void fatal(const std::basic_string_view<type> fmt, Args... args) throw()
+				{
+					using namespace Infomation;
+					static level lev = Fatal;
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					std::unique_lock<std::mutex> lock(this->mutex);
+					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+					auto alraedy = Infomation::makeFormat(fmt, args...);
+					auto logs = this->makeLogs(lev, alraedy);
+					this->write(lev, logs);
+				}
+
+				static friend inline zeroLogT<type>& operator<<(zeroLogT<type>& object, const message&& msg) throw()
+				{
+					using namespace Infomation;
+					//Here we enable thread locks to prevent resource contention issues
+					std::unique_lock<std::mutex> lock(this->mutex);
+					if (!object.hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						object.init();
+					}
+					/* Create a temporary variable to accept log information returned from makeLogs in the zeroLogT<type> instance object */
+					std::basic_string<type> logs;
+					if (msg.level == Reserved)
+					{
+						//For Reserved, we treat it as Info, because Reserved has no value and is used only to filter log messages
+						logs = this->makeLogs(Info, msg._msg.data());
+					}
+					else
+					{
+						logs = this->makeLogs(msg.level, msg._msg.data());
+					}
+					object.write(msg.level == Reserved ? Info : msg.level, logs);
+					//Here we call the write method in the instance object of zeroLogT<type>. At the log level, we use a ternary expression to process Reserved information and then write out the log information
+					return object; //Finally, we return a reference to the object
+				}
+
+				static friend inline zeroLogT<type>& operator>>(zeroLogT<type>& object, msg<type>& msg) throw()
+				{
+					using namespace Infomation;
+					//Here we enable thread locks to prevent resource contention issues
+					std::unique_lock<std::mutex> lock(this->mutex);
+					if (!object.hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						object.init();
+					}
+					if (msg.level == Reserved)
+					{
+						//For Reserved, we treat it as Info, because Reserved has no value and is used only to filter log messages
+						msg.buffer = object.makeLogs(Info, msg._msg.data());
+					}
+					else
+					{
+						msg.buffer = object.makeLogs(msg.level, msg._msg.data());
+						//When we get the log information, we directly assign it to the msg buffer
+					}
+					return object; //Finally, we return a reference to the object
+				}
+
+				void stackTrace()
+				{
+					using namespace Infomation;
+					using namespace Foundation::Tool;
+					//Here we enable thread locks to prevent resource contention issues
+					std::unique_lock<std::mutex> lock(this->mutex);
+					if (!this->hasInit())
+					{
+						//We check if the object is initialized, and if not, we initialize it for it
+						this->init();
+					}
+					std::string logs = this->makeLogs(Warn, std::format("\nHere Is The StackTrace's Content: \n{}", boost::stacktrace::to_string(boost::stacktrace::stacktrace())));
+					this->write(Warn, logs);
+				}
+
+				inline void close()
+				{
+					if (!this->hasInit())
+					{
+						return;
+					}
+					wobject->imbue(Infomation::_Clocale);
+					this->wobject = nullptr;
+					this->has_init = false;
+					fs = nullptr;
+					auto it = Infomation::regMark.find(mark.data());
+					/* 我们这里要做取消注册的工作 */
+					if (it != Infomation::regMark.end())
+					{
+						it->second.erase(server.data());
+					}
+				}
+
+			protected:
+
+				/**
+				 * \brief 此部分写于2023/8/12
+				 * \brief 日志类构造函数.
+				 *
+				 * \param init 决定是否在构造期间初始化
+				 * \param file 决定日志使用的配置文件名
+				 * \param CallBack 可选，如果希望在运行阶段修改配置，此处应提供一个函数用于回调，它将以引用方式进行传递，如果不希望使用请指定其为nullptr
+				 * \param 委托原型： typedef void(__stdcall* logConfCallBackFunc)(rapidjson::Document& Dom);
+				 * \param mark 用于标记日志来源（可选，表示输出的来源）
+				 * \param server 用于标记模块（可选，表示模块名）
+				 */
+				explicit zeroLogT(
+					_In_ bool init,
+					_In_opt_ std::string_view profile = "logConfig.json",
+					_In_opt_ delegate<void, rapidjson::Document&> CallBack = nullptr,
+					_In_opt_ std::string_view mark = "main",
+					_In_opt_ std::string_view server = "ZERO"
+				) : times(NULL), mark(mark), server(server), fs(Infomation::logFileStream), time(NULL)
+				{
+					EventBus bus;
+					auto mainKey = Infomation::regMark.find(mark.data());
+					if (mainKey == Infomation::regMark.end())
+					{
+						Infomation::regMark.insert({ mark.data(),{server.data()}});
+					}
+					else
+					{
+						auto it = mainKey->second.find(server.data());
+						if (it != mainKey->second.end())
+						{
+							PrintError("无法注册对象，因为每个模块是独立的，除非拿到那个模块名称的日志对象被关闭或者被析构!");
+							bus.post("registry_object_failed");
+							return;
+						}
+						mainKey->second.insert(server.data());
+					}
+					if (!Infomation::logSession)
+					{
+						startLoggerSession();
+					}
+					conf = std::make_unique<Foundation::logConfig>();
+					if (!std::filesystem::exists(profile))
+					{
+						DEBUG_MESSAGE("未找到配置文件\n准备生成一个默认配置");
+						conf->InitConfig(profile.data());
+						if (CallBack)
+						{
+							CallBack(conf->getDocment());
+						}
+					}
+					conf->InitConfig(profile.data());
+					if (CallBack)
+					{
+						CallBack(conf->getDocment());
+					}
+					conf->saveSettings(profile);
+					this->minLevel = conf->getMin();
+					if (init)
+					{
+						this->init();
+					}
+				}
+
+			private:
+				inline static void renderTerminal(Infomation::level levels)
+				{
+					using namespace Infomation;
+					using CONSOLE = Foundation::Tool::CONSOLE;
+					switch (levels)
+					{
+					case level::Trace:
+						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_BLUE | (WORD)CONSOLE::CONSOLE_COLOR_GREEN);
+						break;
+					case level::Info:
+						break;
+					case level::Debug:
+						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_GREEN);
+						break;
+					case level::Warn:
+						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_YELLOW);
+						break;
+					case level::Error:
+						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_LIGHTRED);
+						break;
+					case level::Fatal:
+						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_RED);
+						break;
+					}
+				}
+
+				inline std::basic_string<type> makeLogs(Infomation::level report, std::basic_string<type> already)
+				{
+					using namespace Infomation;
+					using namespace Foundation::Tool;
+					using namespace Foundation::Tool::function;
+					if constexpr (std::is_same_v<type, char>)
+					{
+						std::basic_string<type> logs = "{} [{}/{}]: {} {} {}"_zF(
+							makeTimeStr(this->logTimeFormat),
+							this->mark.data(),
+							getMappingIndex(report),
+							strcmp(this->mark.data(), "main") ? std::format("[{}]", this->server) : "",
+							this->showUser ? Foundation::Tool::function::GetUserA() : "",
+							already
+						);
+						return logs;
+					}
+					else if constexpr (std::is_same_v<type, wchar_t>)
+					{
+						std::basic_string<type> logs = L"{} [{}/{}]: {} {} {}"_zWF(
+							MutiToWide(makeTimeStr(this->logTimeFormat)),
+							MutiToWide(this->mark.data()),
+							MutiToWide(getMappingIndex(report)),
+							MutiToWide(strcmp(this->mark.data(), "main") ? std::format("[{}]", this->server) : ""),
+							this->showUser ? Foundation::Tool::function::GetUserW() : L"",
+							already
+						);
+						return logs;
+					}
+				}
+
+				inline LPCSTR getMappingIndex(Infomation::level report)
+				{
+					using namespace Infomation;
+					switch (report)
+					{
+					case level::Trace:
+						return "TRACE";
+					case level::Info:
+						return "INFO";
+					case level::Debug:
+						return "DEBUG";
+					case level::Warn:
+						return "WARN";
+					case level::Error:
+						return "ERROR";
+					case level::Fatal:
+						return "FATAL";
+					}
+					return "\0";
+				}
+
+				inline void write(Infomation::level report, std::basic_string<type> logs)
+				{
+					// Check if the specified log level meets the minimum log level requirement.
+					using namespace Infomation;
+					if (this->minLevel > report)
+					{
+						return;// If not, do not log the message and exit the function.
+					}
+					// If terminal output is enabled, process the log message for terminal output.
+					if (this->EnableTerminalOut)
+					{
+						// If rendering is required, call the 'renderTerminal' function.
+						if (this->render)
+						{
+							renderTerminal(report);
+						}
+						// Write the log message to the terminal stream, depending on the character type.
+						if constexpr (std::is_same_v<type, char>)
+						{
+							/* Due to the lack of support for inserting std::string in wostream, the c_str method is called here for output. */
+							(*object) << logs;
+						}
+						else
+						{
+							/* wchar t doesn't need to be processed, so just output it */
+							(*wobject) << logs;
+						}
+						// Control message separation in terminal output based on 'cleanBuffer' and 'times'.
+						if (cleanBuffer && time < times)
+						{
+							wobject->put(L'\n');
+							// If we don't need the actual number of cleanups to be less than the set number of cleanups, we just wrap the lines
+							time++;
+						}
+						else if (cleanBuffer && time >= times)
+						{
+							// Simply clean up with std::endl, then reset it
+							(*wobject) << std::endl;
+							time = 0;
+						}
+						else
+						{
+							wobject->put(L'\n');
+						}
+					}
+					SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)Foundation::Tool::CONSOLE::CONSOLE_COLOR_WHITE);
+					if (this->EnableFileOut)
+					{
+						if constexpr (std::is_same_v<type, char>)
+						{
+							(*fs) << logs << "\n";
+						}
+						else if constexpr (std::is_same_v<type, wchar_t>)
+						{
+							(*fs) << WideToMuti(logs) << "\n";
+						}
+					}
+				}
+
+				int time;
+				int minLevel;
+				int times;
+				bool render;
+				bool has_init;
+				bool EnableFileOut;
+				bool EnableTerminalOut;
+				bool cleanBuffer;
+				bool showUser;
+				bool EnableThreadSecurity;
+				std::mutex mutex;
+				std::string logTimeFormat;
+				std::unique_ptr<Foundation::logConfig> conf;
+				std::ostream* object = nullptr;
+				std::wostream* wobject = nullptr;
+				std::fstream* fs;
+				std::string_view file;
+				std::string_view mark;
+				std::string_view server;
+			};
+
+			using zeroLogA = zeroLogT<char>;
+			using zeroLogW = zeroLogT<wchar_t>;
+			using msgA = zeroLogA::message;
+			using msgW = zeroLogW::message;
+
+		}
+
+		namespace window
+		{
+			static inline HDC getDevive(_In_opt_ HWND wnd)
+			{
+				return GetDC(wnd);
+			}
+
+			static inline HDC createCompatibleDC(_In_opt_ HDC hdc)
+			{
+				return CreateCompatibleDC(hdc);
+			}
+
+			static inline BOOL deleteDC(_In_ HDC hdc)
+			{
+				return DeleteDC(hdc);
+			}
+
+			class Window
+			{
+			public:
+				~Window()
+				{
+					thread.request_stop();
+				}
+
+				void create()
+				{
+					CLASS.cbSize = sizeof(WNDCLASSEXW);
+					CLASS.hInstance = Instance;
+					CLASS.lpfnWndProc = callback;
+					if (RegisterClassExW(&CLASS) == NULL)
+					{
+						PrintError("无法注册");
+						return;
+					}
+					hwnd = CreateWindowExW(
+						NULL,
+						className.c_str(),
+						title.empty() ? L"Window" : title.c_str(),
+						WS_OVERLAPPEDWINDOW,
+						CW_USEDEFAULT,
+						CW_USEDEFAULT,
+						CW_USEDEFAULT,
+						CW_USEDEFAULT,
+						NULL,
+						NULL,
+						Instance,
+						NULL
+					);
+					if (!hwnd)
+					{
+						PrintError("无法创建窗口");
+						return;
+					}
+				}
+
+				void start()
+				{
+					if (!hwnd)
+					{
+						return;
+					}
+					MSG msg{};
+					ShowWindow(this->hwnd, SW_SHOW);
+					while (GetMessageW(&msg, 0, 0, 0))
+					{
+						DispatchMessageW(&msg);
+					}
+					return;
+				}
+
+				inline void startWithAsyhc() throw()
+				{
+					thread = std::jthread([this]()
+						{
+							create();
+							start();
+						});
+					std::this_thread::sleep_for(std::chrono::milliseconds(1));
+				}
+
+				inline void setTitle(std::wstring title) noexcept
+				{
+					this->title = std::move(title);
+				}
+
+				inline void setClassName(std::wstring className) noexcept
+				{
+					this->className = className;
+					CLASS.lpszClassName = className.c_str();
+				}
+
+				inline void setCallBack(WNDPROC callback) noexcept
+				{
+					this->callback = callback;
+				}
+
+				inline void setInstance(HINSTANCE Instance) noexcept
+				{
+					this->Instance = Instance;
+				}
+
+			private:
+				WNDPROC callback = nullptr;
+				WNDCLASSEXW CLASS = {};
+				std::wstring title;
+				std::wstring className;
+				HINSTANCE Instance{};
+				HWND hwnd{};
+				std::jthread thread;
+			};
+
+			class Pen
+			{
+			public:
+				static inline COLORREF generateRGB(_In_ BYTE red, _In_ BYTE green, _In_ BYTE blue) noexcept
+				{
+					return ((COLORREF)(((BYTE)(red) | ((WORD)((BYTE)(green)) << 8)) | (((DWORD)(BYTE)(blue)) << 16)));
+				}
+
+				Pen() noexcept = default;
+
+				Pen(_In_ int style, _In_ int width,_In_ COLORREF color) noexcept
+				{
+					create(style, width, color);
+				}
+
+				Pen(_In_ const LOGPEN* plpen)
+				{
+					createIndirect(plpen);
+				}
+
+				~Pen()
+				{
+					release();
+				}
+
+				inline bool create(_In_ int style,_In_ int width,_In_ COLORREF colors) noexcept
+				{
+					this->Handle = CreatePen(style,width,colors);
+					if (!Handle)
+					{
+						return false;
+					}
+					return true;
+				}
+
+				inline bool createIndirect(_In_ const LOGPEN* plpen) noexcept
+				{
+					this->Handle = CreatePenIndirect(plpen);
+					if (!Handle)
+					{
+						return false;
+					}
+					return true;
+				}
+
+				inline operator HPEN() noexcept
+				{
+					return native_handle();
+				}
+
+				inline HPEN native_handle() noexcept
+				{
+					return Handle;
+				}
+
+				void release()
+				{
+					if (Handle)
+					{
+						DeleteObject(Handle);
+					}
+				}
+
+			private:
+				HPEN Handle{};
+			};
+
+			class solidBrush
+			{
+			public:
+				solidBrush() noexcept = default;
+
+				solidBrush(_In_ COLORREF color)
+				{
+					create(color);
+				}
+
+				bool create(_In_ COLORREF color)
+				{
+					Handle = CreateSolidBrush(color);
+					if (!Handle)
+					{
+						return false;
+					}
+					return true;
+				}
+
+				inline operator HBRUSH() noexcept
+				{
+					return native_handle();
+				}
+
+				inline HBRUSH native_handle() noexcept
+				{
+					return Handle;
+				}
+
+				void release()
+				{
+					if (Handle)
+					{
+						DeleteObject(Handle);
+					}
+				}
+
+			private:
+				HBRUSH Handle{};
+			};
+
+			class bitMap
+			{
+			public:
+				bitMap() noexcept = default;
+
+				bool createIndirect(_In_ BITMAP* pdm)
+				{
+					Handle = CreateBitmapIndirect(pdm);
+					if (!Handle)
+					{
+						return false;
+					}
+					return true;
+				}
+
+				bool createCompatible(_In_ HDC hdc, _In_ int width, _In_ int height)
+				{
+					Handle = CreateCompatibleBitmap(hdc, width, height);
+					if (!Handle)
+					{
+						return false;
+					}
+					return true;
+				}
+
+				bool createDI(_In_ HDC hdc, _In_opt_ const BITMAPINFOHEADER* pbmih, _In_ DWORD flInit, _In_opt_ CONST VOID* pjBits, _In_opt_ CONST BITMAPINFO* pbmi, _In_ UINT iUsage)
+				{
+					Handle = CreateDIBitmap(hdc, pbmih, flInit, pjBits, pbmi, iUsage);
+					if (!Handle)
+					{
+						return false;
+					}
+					return true;
+				}
+
+				inline operator HBITMAP() noexcept
+				{
+					return native_handle();
+				}
+
+				inline HBITMAP native_handle() noexcept
+				{
+					return Handle;
+				}
+
+				void release()
+				{
+					if (Handle)
+					{
+						DeleteObject(Handle);
+					}
+				}
+			private:
+				HBITMAP Handle{};
 			};
 		}
 	}
