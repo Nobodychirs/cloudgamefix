@@ -100,7 +100,7 @@ EN:
 #undef CLOUDGAME_FIX_ZERO_DISABLE_WARNING
 #endif // if defined(CLOUDGAME_FIX_ZERO_DISABLE_WARNING)
 #ifndef CLOUDGAME_FIX_ZERO_DISABLE_WARNING
-#define CLOUDGAME_FIX_ZERO_DISABLE_WARNING 4267 4101 26451 26819 33010 26495 6388 4305 4018 4244 6011 26493 26451 26439 5082
+#define CLOUDGAME_FIX_ZERO_DISABLE_WARNING 4267 4101 26451 26819 33010 26495 6388 4305 4018 4244 6011 26493 26451 26439 5082 28193
 #endif //ifndef CLOUDGAME_FIX_ZERO_DISABLE_WARNING
 
 #pragma warning(push)
@@ -410,12 +410,11 @@ namespace cloudgameZero
 		namespace Secutriy
 		{
 			static std::mutex mutexLock;
-			constexpr std::string_view urlLinkRegex = "^(https://|http://|ftp://).+/.*";
-			constexpr std::string_view lnkPathRegex = "^([a-z]|[A-Z]){1}:\\\\.*(.lnk)$";
-			constexpr std::string_view lnkPathRegexNoEscape = "^([a-z]|[A-Z]){1}:/.+.(lnk)$";
+			constexpr std::string_view urlLinkRegex = R"(^(https:\/\/|http:\/\/|ftp:\/\/).+(\/)?.+)";
+			constexpr std::string_view lnkPathRegex = R"(^([a-z]|[A-Z]){1}:((\\\\)|(\\/)|(\\\\)).+(\.lnk)$)";
 		}
 		
-		/* Two callback temporary functions for curl */
+		/* Three callback temporary functions for curl */
 		constexpr auto curlResponseCallBack = 
 			[](char* ptr, size_t size, size_t nmemb, void* userdata)
 			{
@@ -428,6 +427,20 @@ namespace cloudgameZero
 			{
 				((std::fstream*)userdata)->write(ptr, size * nmemb);
 				return size * nmemb;
+			};
+
+		constexpr auto progressCallback = [](void* progress_data, double t, double d, double ultotal, double ulnow)
+			{
+				static char bar[120];
+				int i = 0;
+				if (t) {
+					i = static_cast<int>(d * 100.0 / t);
+				}
+				printf("Progress : [%-100s][%d%%]\r", bar, i);
+				bar[i] = '>';
+				i++;
+				bar[i] = 0;
+				return 0;
 			};
 		
 		static std::mutex curlLock;
@@ -528,6 +541,12 @@ namespace cloudgameZero
 		static std::map<std::string,std::set<std::string>> regMark;
 
 		static const std::atomic_bool isCloudPC = !std::filesystem::exists("E:\\Builds");
+
+		constexpr std::string_view wuauserv_str = "wuauserv";
+
+		static bool isSupportingModernFeatures();
+
+		static bool isWin10AnniversaryOrHigher();
 	}
 
 	using logLevel = Infomation::level;
@@ -6371,10 +6390,12 @@ namespace cloudgameZero
 		{
 		public:
 			enum class mode { cloudgame, cloudpc };
-			virtual BOOL fixSystem() = 0;
-			virtual void fixFile(_In_ mode mode) = 0;
+			virtual BOOL fixSystemRestriction() = 0;
+			virtual void fixFileExt(_In_ mode mode) = 0;
 			virtual void resetGroupPolicy() = 0;
 			virtual HRESULT repairGameFile() = 0;
+			virtual void fixUpdateFiles(_In_ std::string manifest, _In_opt_ BOOL useGetRequest = FALSE) = 0;
+			virtual void fixUpdateService() = 0;
 		};
 
 		/* 相比cgFix，cgSystem提供了更多功能，同时支持查询cgFix接口，可以看作是对cgFix的强化版 */
@@ -6444,6 +6465,13 @@ namespace cloudgameZero
 		{
 		public:
 			virtual int setRepoFilestream() = 0;
+		};
+
+		MakeCloudgameInterface("F4884B4B-0A54-4DB9-93C0-316B8BA8DBBD")
+		notification
+		{
+		public:
+
 		};
 
 		/* 存储内部接口的声明 */
@@ -7280,8 +7308,8 @@ namespace cloudgameZero
 				}
 			}
 
-			/* Windows通知将使用此结构体 */
-			__STRUCT__ ToastTemplate{
+			/* Windows通知将使用此类 */
+			class ToastTemplate{
 			public:
 				ToastTemplate(_In_ Enums::ToastTemplateType type = Enums::ToastTemplateType::ImageAndText02) : _type(type)
 				{
@@ -7473,7 +7501,7 @@ namespace cloudgameZero
 					}
 					if (_shortcutPolicy != Enums::ShortcutPolicy::SHORTCUT_POLICY_IGNORE)
 					{
-						if (createShortcut() < 0) {
+						if ((INT)createShortcut() < 0) {
 							setError(error, Enums::ToastError::ShellLinkNotCreated);
 							Libray::Util::ToastPlatformLog()->warn("如果要触发Toast通知：您必须提供了一个Aumi和一个在开始菜单的快捷方式(不应该忽略创建)");
 							return false;
@@ -7559,7 +7587,7 @@ namespace cloudgameZero
 							{
 								/* 此处将会开始构建Toast xml文件 */
 								ComPtr<IXmlDocument> xmlDocument;
-								hr = notificationManager->GetTemplateContent(ToastTemplateType(toast.getType()), &xmlDocument);
+								hr = notificationManager->GetTemplateContent(ABI::Windows::UI::Notifications::ToastTemplateType(toast.getType()), &xmlDocument);
 								if (SUCCEEDED(hr) && toast.isToastGeneric())
 								{
 									hr = this->setBindToastGenericHelper(xmlDocument.Get());
@@ -8486,6 +8514,7 @@ namespace cloudgameZero
 		public:
 			using curl_handle_type = CURL*;
 			typedef size_t(CALLBACK* curlCallBack)(char* ptr, size_t size, size_t nmemb, void* stream);
+			typedef int(*progressCallBack)(void* clientp, double dltotal, double dlnow, double ultotal, double ulnow);
 
 			enum class operation
 			{
@@ -8512,31 +8541,48 @@ namespace cloudgameZero
 				{
 					LibError(std::runtime_error("无法获取实例对象"));
 				}
+				isInit = true;
 			}
 
 			template<typename... Args>
 			inline void setCurl(_In_ const CURLoption option,_In_ Args&&... args)
 			{
+				if (!isInit)
+				{
+					return;
+				}
 				std::unique_lock<std::mutex> lock(mtx);
 				curl_easy_setopt(Handle,option, args...);
 			}
 
 			inline void setUrl(_In_ const std::string& url)
 			{
+				if (!isInit)
+				{
+					return;
+				}
 				std::unique_lock<std::mutex> lock(mtx);
 				curl_easy_setopt(Handle, CURLOPT_URL, url.c_str());
 			}
 
 			inline void setOperater(_In_ operater __operater)
 			{
+				if (!isInit)
+				{
+					return;
+				}
 				std::unique_lock<std::mutex> lock(mtx);
 				this->_operater = __operater;
 			}
 
 			_NODISCARD rapidjson::Document getJsonDomByRequest(_In_ operation method)
 			{
-				std::string data = sendRequest(method);
 				rapidjson::Document Dom;
+				if (!isInit)
+				{
+					return Dom;
+				}
+				std::string data = sendRequest(method);
 				Dom.Parse(data.c_str());
 				if (Dom.HasParseError())
 				{
@@ -8547,6 +8593,10 @@ namespace cloudgameZero
 
 			std::string sendRequest(_In_ operation method)
 			{
+				if (!isInit)
+				{
+					return std::string();
+				}
 				std::unique_lock<std::mutex> lock(mtx);
 				if (_operater != operater::Request)
 				{
@@ -8554,11 +8604,12 @@ namespace cloudgameZero
 				}
 				std::string response;
 				curlCallBack callback = Infomation::curlResponseCallBack;
-				curl_easy_setopt(Handle, CURLOPT_REFERER, "http://www.baidu.com");
-				curl_easy_setopt(Handle, CURLOPT_SSL_VERIFYPEER, true);
+				//curl_easy_setopt(Handle, CURLOPT_REFERER, "http://www.baidu.com");
+				curl_easy_setopt(Handle, CURLOPT_SSL_VERIFYPEER, false);
 				curl_easy_setopt(Handle, CURLOPT_SSL_VERIFYHOST, false);
 				curl_easy_setopt(Handle, CURLOPT_WRITEFUNCTION, callback);
 				curl_easy_setopt(Handle, CURLOPT_WRITEDATA, (void*)&response);
+				curl_easy_setopt(Handle,CURLOPT_FOLLOWLOCATION, 1);
 				if (method == operation::POST)
 				{
 					if (postfileds.empty())
@@ -8578,6 +8629,10 @@ namespace cloudgameZero
 
 			CURLcode sendDownloadRequest(_In_ operation _operation,_In_ std::string filename,_In_opt_ bool cover = true)
 			{
+				if (!isInit)
+				{
+					return CURLcode::CURLE_NOT_BUILT_IN;
+				}
 				std::unique_lock<std::mutex> lock(mtx);
 				if (this->_operater != operater::Download)
 				{
@@ -8585,7 +8640,7 @@ namespace cloudgameZero
 					LibError(std::bad_function_call());
 				}
 				namespace fs = std::filesystem;
-				std::fstream& ref = fstream;
+				std::fstream ref;
 				if (fs::exists(filename))
 				{
 					if (cover)
@@ -8612,8 +8667,6 @@ namespace cloudgameZero
 				}
 				curlCallBack callback = Infomation::curlFileCallback;
 				curl_easy_setopt(Handle, CURLOPT_REFERER, "http://www.baidu.com");
-				curl_easy_setopt(Handle, CURLOPT_SSL_VERIFYPEER, true);
-				curl_easy_setopt(Handle, CURLOPT_SSL_VERIFYHOST, false);
 				curl_easy_setopt(Handle, CURLOPT_WRITEFUNCTION, callback);
 				curl_easy_setopt(Handle, CURLOPT_WRITEDATA, (void*)&ref);
 				if (_operation == operation::POST)
@@ -8625,9 +8678,39 @@ namespace cloudgameZero
 					curl_easy_setopt(Handle, CURLOPT_POST, true);
 					curl_easy_setopt(Handle, CURLOPT_POSTFIELDS, postfileds.c_str());
 				}
+				curl_easy_setopt(Handle, CURLOPT_FOLLOWLOCATION, true);
+				curl_easy_setopt(Handle, CURLOPT_CONNECTTIMEOUT, 360);
+				curl_easy_setopt(Handle, CURLOPT_TIMEOUT, 360);
 				CURLcode code = curl_easy_perform(Handle);
+				if (enableProgress)
+				{
+					std::cout << "\n";
+				}
 				ref.close();
 				return code;
+			}
+
+			inline void showProgress()
+			{
+				if (!isInit)
+				{
+					return;
+				}
+				progressCallBack Callback = Infomation::progressCallback;
+				curl_easy_setopt(Handle,CURLOPT_NOPROGRESS, false);
+				curl_easy_setopt(Handle,CURLOPT_PROGRESSFUNCTION, Callback);
+				enableProgress = true;
+			}
+
+			inline void disableProgress()
+			{
+				if (!isInit)
+				{
+					return;
+				}
+				curl_easy_setopt(Handle, CURLOPT_NOPROGRESS, true);
+				curl_easy_setopt(Handle, CURLOPT_PROGRESSFUNCTION, nullptr);
+				enableProgress = false;
 			}
 
 			inline operator curl_handle_type()
@@ -8645,18 +8728,20 @@ namespace cloudgameZero
 			inline void cleanup()
 			{
 				std::unique_lock<std::mutex> lock(mtx);
-				if (Handle)
+				if (Handle && isInit)
 				{
 					curl_easy_cleanup(Handle);
 				}
+				isInit = false;
 			}
 
 		private:
 			curl_handle_type Handle = nullptr;
 			operater _operater{};
-			std::fstream fstream{};
 			std::string postfileds{};
 			std::mutex mtx;
+			bool isInit;
+			bool enableProgress;
 		};
 
 		namespace json

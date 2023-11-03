@@ -1,12 +1,53 @@
 #include "cloudgamefix.hpp"
 
-using namespace cloudgameZero::Interface::sigmaInterface::Implement;
-using namespace cloudgameZero::Interface::sigmaInterface::guid;
-using namespace cloudgameZero::Interface;
-using namespace cloudgameZero::ToastPlatform;
 using namespace cloudgameZero;
+using namespace cloudgameZero::Foundation;
+using namespace cloudgameZero::Foundation::Tool;
+using namespace cloudgameZero::Foundation::dynamincLibrayFunc::function;
+using namespace cloudgameZero::Interface;
+using namespace cloudgameZero::Interface::sigmaInterface::guid;
+using namespace cloudgameZero::Interface::sigmaInterface::Implement;
+using namespace cloudgameZero::ToastPlatform;
+using namespace cloudgameZero::ToastPlatform::API;
+using namespace cloudgameZero::ToastPlatform::Enums;
 
 #define MakeCloudgameComponent(x) class DECLSPEC_UUID(x) DECLSPEC_NOVTABLE
+
+#pragma warning(push)
+#pragma warning(disable : CLOUDGAME_FIX_ZERO_DISABLE_WARNING)
+
+static inline void setError(_Out_opt_ Enums::ToastError* error, _In_ Enums::ToastError value)
+{
+	if (error) {
+		*error = value;
+	}
+}
+
+static std::wstring configureAUMI(_In_ std::wstring const& companyName, _In_ std::wstring const& productName, _In_ std::wstring const& subProduct = std::wstring(), _In_ std::wstring const& versionInformation = std::wstring())
+{
+	std::wstring aumi = companyName;
+	aumi += L"." + productName;
+	if (subProduct.length() > 0)
+	{
+		aumi += L"." + subProduct;
+		if (versionInformation.length() > 0)
+		{
+			aumi += L"." + versionInformation;
+		}
+	}
+	if (aumi.length() > SCHAR_MAX)
+	{
+		DEBUG_MESSAGE(L"错误：用户模型ID总长度不应该超过127");
+	}
+	return aumi;
+}
+
+static std::wstring const& getToastErrorMessage(_In_ Enums::ToastError error)
+{
+	auto const iter = Libray::ToastErrors.find(error);
+	assert(iter != Libray::ToastErrors.end());
+	return iter->second;
+}
 
 namespace cloudgameZero
 {
@@ -24,10 +65,12 @@ namespace cloudgameZero
 					virtual HRESULT QueryInterface(const IID& iid, void** ppv) override;
 					virtual ULONG AddRef() override;
 					virtual ULONG Release() override;
-					virtual BOOL fixSystem() override;
-					virtual void fixFile(_In_ mode mode) override;
+					virtual BOOL fixSystemRestriction() override;
+					virtual void fixFileExt(_In_ mode mode) override;
 					virtual void resetGroupPolicy() override;
 					virtual HRESULT repairGameFile() override;
+					virtual void fixUpdateFiles(_In_ std::string manifest, _In_opt_ BOOL useGetRequest = FALSE) override;
+					virtual void fixUpdateService() override;
 					enum game_file_m { origin, epic, steam, uplay };
 				private:
 					ULONG ref = 0;
@@ -48,10 +91,12 @@ namespace cloudgameZero
 					virtual void downloadWallpaperAndSet(IN const std::string& url, IN const std::string path) override;
 					virtual void changeResolution(IN short length, IN short height) override;
 					virtual void changeTheme(IN Theme theme);
-					virtual BOOL fixSystem() override;
-					virtual void fixFile(_In_ mode mode) override;
+					virtual BOOL fixSystemRestriction() override;
+					virtual void fixFileExt(_In_ mode mode) override;
 					virtual void resetGroupPolicy() override;
 					virtual HRESULT repairGameFile() override;
+					virtual void fixUpdateFiles(_In_ std::string manifest,_In_opt_ BOOL useGetRequest = FALSE) override;
+					virtual void fixUpdateService() override;
 				private:
 					ULONG ref = 0;
 					__cgSystem(const __cgSystem& other) = delete;
@@ -109,16 +154,16 @@ static std::map<int, std::string> path_Tran = {
 		{__cgFix::uplay,		"D:\\uplay1"}
 };
 static std::map<int, std::string> path_After = {
-		{__cgFix::origin,	"D:\\origin games_tran"},
-		{__cgFix::epic,	"D:\\EpicGames_tran"},
-		{__cgFix::steam,	"D:\\steamapps\\steamapps_tran"},
-		{__cgFix::uplay,	"D:\\uplay_tran"}
+		{__cgFix::origin,							"D:\\origin games_tran"},
+		{__cgFix::epic,								"D:\\EpicGames_tran"},
+		{__cgFix::steam,							"D:\\steamapps\\steamapps_tran"},
+		{__cgFix::uplay,							"D:\\uplay_tran"}
 };
 static std::map<Interface::cgSystem::Theme,std::string> ThemeIndex = { 
-		{ Interface::cgSystem::Theme::Default,"aero.theme" },
-		{ Interface::cgSystem::Theme::white,"Light.theme" },
-		{ Interface::cgSystem::Theme::windows,"theme1.theme" },
-		{ Interface::cgSystem::Theme::flower,"theme2.theme" }
+		{ Interface::cgSystem::Theme::Default,		"aero.theme" },
+		{ Interface::cgSystem::Theme::white,		"Light.theme" },
+		{ Interface::cgSystem::Theme::windows,		"theme1.theme" },
+		{ Interface::cgSystem::Theme::flower,		"theme2.theme" }
 };
 
 HRESULT  __cgFix::QueryInterface(const IID& iid, void** ppv)
@@ -154,7 +199,7 @@ ULONG  __cgFix::Release()
 	return NULL;
 }
 
-BOOL  __cgFix::fixSystem()
+BOOL  __cgFix::fixSystemRestriction()
 {
 	std::unique_lock<std::mutex> lock(mtx);	// Lock the mutex for thread safety
 	namespace fs = std::filesystem;	// Alias for the filesystem namespace
@@ -316,7 +361,7 @@ BOOL  __cgFix::fixSystem()
 	return has_success;
 }
 
-void  __cgFix::fixFile(_In_ __cgFix::mode mode)
+void  __cgFix::fixFileExt(_In_ __cgFix::mode mode)
 {
 	switch (mode)
 	{
@@ -325,8 +370,8 @@ void  __cgFix::fixFile(_In_ __cgFix::mode mode)
 		std::cout << "开始修复文件关联" << "\n";
 		std::cout << "创建注册表对象中..." << "\n";
 		cloudgameZero::Foundation::Tool::Regedit reg(Infomation::HKCR);
-		std::vector<std::string> list = { ".reg",".bat",".cmd" };
-		std::vector<std::string> value = { "regfile","batfile","cmdfile" };
+		static std::vector<std::string> list = { ".reg",".bat",".cmd" };
+		static std::vector<std::string> value = { "regfile","batfile","cmdfile" };
 		for (
 			std::vector<std::string>::iterator it = list.begin(), itr = value.begin();
 			it != list.end() && itr != value.end();
@@ -416,6 +461,203 @@ HRESULT  __cgFix::repairGameFile()
 	return E_FAIL;
 }
 
+void cloudgameZero::Interface::sigmaInterface::Implement::__cgFix::fixUpdateFiles(_In_ std::string manifest,_In_opt_ BOOL useGetRequest)
+{
+	namespace fs = std::filesystem;
+	EventBus bus;
+	if (!fs::exists(manifest) && !useGetRequest)
+	{
+		bus.post("file_not_found");
+		return;
+	}
+	Experiment::Curl curl;
+	rapidjson::Document Dom;
+	if (useGetRequest)
+	{
+		if (!std::regex_match(manifest, std::regex(Infomation::Secutriy::urlLinkRegex.data())))
+		{
+			bus.post("invaild_args");
+			return;
+		}
+		curl.init();
+		curl.setUrl(manifest.c_str());
+		curl.setOperater(Experiment::Curl::operater::Request);
+		Dom = curl.getJsonDomByRequest(Experiment::Curl::operation::GET);
+		curl.cleanup();
+	}
+	else
+	{
+		if (std::regex_match(manifest, std::regex(Infomation::Secutriy::urlLinkRegex.data())))
+		{
+			bus.post("invaild_args");
+			return;
+		}
+		std::fstream in(manifest, std::ios::in);
+		if (!in.is_open())
+		{
+			bus.post("file_open_failed");
+			return;
+		}
+		std::string data((std::istream_iterator<char>(in)), std::istream_iterator<char>());
+		in.close();
+		if (Dom.Parse(data.c_str()); Dom.HasParseError())
+		{
+			bus.post("json_parse_error");
+			return;
+		}
+	}
+	if (!(Dom.HasMember("cloudpc") && Dom.HasMember("cloudgame")))
+	{
+		bus.post("invalid_args");
+		return;
+	}
+	auto& cloudgame = Dom[Infomation::isCloudPC ? "cloudpc" : "cloudgame"];
+	std::string url;
+	bool invalid_args = true;
+	do {
+		if (!cloudgame.HasMember("proxy"))
+			break;
+		if (!(cloudgame["proxy"].HasMember("enable") && cloudgame["proxy"].HasMember("url")))
+			break;
+		if (!(cloudgame["proxy"]["enable"].IsBool() && cloudgame["proxy"]["url"].IsString()))
+			break;
+		if (cloudgame["proxy"]["enable"].GetBool())
+			url += cloudgame["proxy"]["url"].GetString();
+		if (!cloudgame.HasMember("repo"))
+			break;
+		if (!cloudgame["repo"].IsString())
+			break;
+		LPCSTR repo = cloudgame["repo"].GetString();
+		if (!repo)
+			break;
+		url += repo;
+		if (!cloudgame.HasMember("files"))
+			break;
+		if (!cloudgame["files"].IsObject())
+			break;
+		if (!cloudgame["files"]["services"].IsArray())
+			break;
+		invalid_args = false;
+	} while (false);
+	if (invalid_args)
+	{
+		bus.post("invalid_args");
+		return;
+	}
+	rapidjson::GenericArray<false, rapidjson::Value> files = cloudgame["files"]["services"].GetArray();
+	auto& zindex = files[0];
+	if (!(zindex.HasMember("filename") && zindex.HasMember("savePath") && zindex.HasMember("check") && zindex.HasMember("description")))
+	{
+		bus.post("invalid_args");
+		return;
+	}
+	std::string download;
+	static errno_t error = 0;
+	curl.init();
+	curl.setOperater(Experiment::Curl::operater::Download);
+	for (auto& iterator : files)
+	{
+		LPCSTR filename = iterator["filename"].GetString();
+		std::string check = cloudgameZero::format<char>("%s%s", iterator["savePath"].GetString(), filename);
+		std::string fileurl = cloudgameZero::format<char>("%s%s", url.c_str(), filename);
+		if (!fs::exists(check))
+		{
+			CL()->info("Starting Download For : {}", fileurl);
+			curl.setUrl(fileurl);
+			curl.sendDownloadRequest(Experiment::Curl::operation::GET, check);
+		}
+		size_t size = fs::file_size(check), c_size = iterator["check"]["size"].GetInt();
+		std::string sha1 = cloudgameZero::getFileSha1(check), c_sha1 = iterator["check"]["sha1"].GetString();
+		if (size != c_size)
+		{
+			CL()->warn("The size specified in the manifest file does not match the actual size. Try to download it again for verification");
+			CL()->info("Starting Download For : {}", fileurl);
+			curl.setUrl(fileurl);
+			curl.sendDownloadRequest(Experiment::Curl::operation::GET, check);
+			std::size_t size = fs::file_size(check);
+			std::string sha1 = cloudgameZero::getFileSha1(check);
+			if (size != c_size)
+			{
+				error = 1;
+				bus.post("verify_failed", &error);
+			}
+			else if (sha1 != c_sha1)
+			{
+				error = 2;
+				bus.post("verify_failed", &error);
+			}
+			return;
+		}
+		if (sha1 != c_sha1)
+		{
+			CL()->warn("The hash check value of the file is detected to be inconsistent with the hash check value specified by the manifest,Try to download it again for verification");
+			CL()->info("Starting Download For : {}", fileurl);
+			curl.setUrl(fileurl);
+			curl.sendDownloadRequest(Experiment::Curl::operation::GET, check);
+			std::size_t size = fs::file_size(check);
+			std::string sha1 = cloudgameZero::getFileSha1(check);
+			if (size != c_size)
+			{
+				error = 3;
+				bus.post("verify_failed", &error);
+			}
+			else if (sha1 != c_sha1)
+			{
+				error = 4;
+				bus.post("verify_failed", &error);
+			}
+			return;
+		}
+	}
+	curl.cleanup();
+	/* We can just notify the component that the transaction has completed with an event */
+	bus.post("success");
+}
+
+void cloudgameZero::Interface::sigmaInterface::Implement::__cgFix::fixUpdateService()
+{
+	EventBus bus;
+	namespace fs = std::filesystem;
+	if (!fs::exists("C:\\Windows\\System32\\wuaueng.dll") || !fs::exists("C:\\Windows\\System32\\WaaSMedicSvc.dll"))
+	{
+		bus.post("file_not_found");
+		CL()->debug("请尝试确认服务需要的dll模块是否存在");
+		return;
+	}
+	CL()->trace("所有文件已就位");
+	CL()->trace("准备获取句柄");
+	SC_HANDLE LOCAL_MACHINE = OpenSCManagerW(NULL, SERVICES_ACTIVE_DATABASE, SC_MANAGER_ALL_ACCESS);
+	if (!LOCAL_MACHINE)
+	{
+		bus.post("sm_open_failed");
+		return;
+	}
+	CL()->debug("准备拿取wuauserv句柄并修改TrustedInstaller");
+	static Regedit reg(Infomation::HKLM, "SYSTEM\\CurrentControlSet\\Services\\TrustedInstaller");
+	reg.setValue("Start", REG_DWORD, "3");
+	/* 由于TrustedInstaller服务无法直接拿到句柄，因此使用注册表实现这个功能 */
+	SC_HANDLE wuauserv = OpenServiceA(LOCAL_MACHINE, Infomation::wuauserv_str.data(), SC_MANAGER_ALL_ACCESS);
+	if (!wuauserv)
+	{
+		bus.post("service_open_failed");
+		return;
+	}
+	BOOL ret = ChangeServiceConfigA(wuauserv, SERVICE_NO_CHANGE, SERVICE_DEMAND_START, SERVICE_NO_CHANGE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+	if (!ret)
+	{
+		bus.post("edit_service_failed");
+		return;
+	}
+	ret = StartServiceA(wuauserv, NULL, nullptr);
+	if (!ret)
+	{
+		bus.post("edit_service_failed");
+	}
+	ShellExecuteA(NULL, "open", "net", "start TrustedInstaller", NULL, SW_HIDE);
+	return;
+}
+
+
 /*
 cgFix接口结束
 cgSystem接口开始
@@ -486,7 +728,7 @@ void cloudgameZero::Interface::sigmaInterface::Implement::__cgSystem::downloadWa
 
 void cloudgameZero::Interface::sigmaInterface::Implement::__cgSystem::changeResolution(IN short length, IN short height)
 {
-	CL()->info("准备修改分辨率");
+	CL()->trace("准备修改分辨率");
 	CL()->info("开始创建结构体");
 	DEVMODEA temp{};
 	CL()->info("开始枚举显示器");
@@ -504,14 +746,14 @@ void cloudgameZero::Interface::sigmaInterface::Implement::__cgSystem::changeThem
 	ShellExecuteA(NULL, "open", std::format("C:\\Windows\\Resources\\Themes\\{}", str).c_str(), NULL, NULL, SW_HIDE);
 }
 
-BOOL sigmaInterface::Implement::__cgSystem::fixSystem()
+BOOL sigmaInterface::Implement::__cgSystem::fixSystemRestriction()
 {
-	return __cgFix::fixSystem();
+	return __cgFix::fixSystemRestriction();
 }
 
-void sigmaInterface::Implement::__cgSystem::fixFile(_In_ mode mode)
+void sigmaInterface::Implement::__cgSystem::fixFileExt(_In_ mode mode)
 {
-	return __cgFix::fixFile(mode);
+	return __cgFix::fixFileExt(mode);
 }
 void sigmaInterface::Implement::__cgSystem::resetGroupPolicy()
 {
@@ -521,3 +763,33 @@ HRESULT sigmaInterface::Implement::__cgSystem::repairGameFile()
 {
 	return __cgFix::repairGameFile();
 }
+
+void sigmaInterface::Implement::__cgSystem::fixUpdateFiles(_In_ std::string manifest, _In_opt_ BOOL useGetRequest)
+{
+	return __cgFix::fixUpdateFiles(manifest,useGetRequest);
+}
+
+void sigmaInterface::Implement::__cgSystem::fixUpdateService()
+{
+	return __cgFix::fixUpdateService();
+}
+
+/* 通知实体类方法实现 */
+
+extern void testNoti()
+{
+	
+}
+
+bool cloudgameZero::Infomation::isSupportingModernFeatures()
+{
+	constexpr auto MinimumSupportedVersion = 6;
+	return Libray::Util::getRealOSVersion().dwMajorVersion > MinimumSupportedVersion;
+}
+
+bool cloudgameZero::Infomation::isWin10AnniversaryOrHigher()
+{
+	return Libray::Util::getRealOSVersion().dwBuildNumber >= 14393;
+}
+
+#pragma warning(pop)

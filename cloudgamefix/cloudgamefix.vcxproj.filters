@@ -35,5 +35,8 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="repo.json" />
+    <None Include="cloudgame.json">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

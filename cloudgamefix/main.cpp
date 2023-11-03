@@ -26,6 +26,8 @@ namespace ToastPlatformEnums = cloudgameZero::ToastPlatform::Enums;
  * └─────┴────┴────┴───────────────────────┴────┴────┴────┴────┘ └───┴───┴───┘ └───────┴───┴───┘
  */
 
+extern void testNoti();
+
 static const auto memu = 
 []() -> std::vector<std::string_view>
 	{
@@ -96,111 +98,6 @@ LRESULT __stdcall WindowProcedure(HWND window, unsigned int msg, WPARAM wp, LPAR
 	}
 }
 
-void fixUpdate(_In_ std::string manifest, _In_opt_ BOOL useGetRequest = FALSE)
-{
-	namespace fs = std::filesystem;
-	EventBus bus;
-	if (!fs::exists(manifest) && !useGetRequest)
-	{
-		bus.post("file_not_found");
-		return;
-	}
-	Experiment::Curl curl;
-	rapidjson::Document Dom;
-	if (useGetRequest)
-	{
-		curl.init();
-		curl.setUrl(manifest.c_str());
-		curl.setOperater(Experiment::Curl::operater::Request);
-		Dom = curl.getJsonDomByRequest(Experiment::Curl::operation::GET);
-		curl.cleanup();
-	}
-	else
-	{
-		std::fstream in(manifest, std::ios::in);
-		if (!in.is_open())
-		{
-			bus.post("file_open_failed");
-			return;
-		}
-		std::string data((std::istream_iterator<char>(in)), std::istream_iterator<char>());
-		in.close();
-		if (Dom.Parse(data.c_str()); Dom.HasParseError())
-		{
-			bus.post("json_parse_failed");
-			return;
-		}
-	}
-	auto& cloudgame = Dom[Infomation::isCloudPC ? "cloudpc" : "cloudgame"];
-	std::string url;
-	url.resize(MAX_PATH);
-	if (cloudgame["proxy"]["enable"].GetBool())
-	{
-		url += cloudgame["proxy"]["url"].GetString();
-	}
-	url += cloudgame["repo"].GetString();
-	auto files = cloudgame["files"].GetArray();
-	std::string download;
-	static errno_t error = 0;
-	for (auto& iterator : files)
-	{
-		curl.init();
-		curl.setOperater(Experiment::Curl::operater::Download);
-		LPCSTR filename = iterator["filename"].GetString();
-		std::string check = cloudgameZero::format<char>("%s%s", iterator["savePath"].GetString(),filename);
-		std::string fileurl = cloudgameZero::format<char>("%s%s", url.c_str(), filename);
-		if (!fs::exists(check))
-		{
-			CL()->info("开始下载: {}",fileurl);
-			curl.setUrl(fileurl);
-			curl.sendDownloadRequest(Experiment::Curl::operation::GET, check);
-		}
-		size_t size = fs::file_size(check),c_size = iterator["check"]["size"].GetInt();
-		std::string sha1 = cloudgameZero::getFileSha1(check),c_sha1 = iterator["check"]["sha1"].GetString();
-		if (size != c_size)
-		{
-			CL()->warn("检测到文件大小不一致，尝试重新进行下载");
-			CL()->info("开始下载: {}", fileurl);
-			curl.setUrl(fileurl);
-			curl.sendDownloadRequest(Experiment::Curl::operation::GET, check);
-			std::size_t size = fs::file_size(check);
-			std::string sha1 = cloudgameZero::getFileSha1(check);
-			if (size != c_size)
-			{
-				error = 1;
-				bus.post("verify_failed",&error);
-			}
-			else if (sha1 != c_sha1)
-			{
-				error = 2;
-				bus.post("verify_failed", &error);
-			}
-			return;
-		}
-		if (sha1 != c_sha1)
-		{
-			CL()->warn("检测到文件校验值不一致，尝试重新进行下载");
-			CL()->info("开始下载: {}", fileurl);
-			curl.setUrl(fileurl);
-			curl.sendDownloadRequest(Experiment::Curl::operation::GET, check);
-			std::size_t size = fs::file_size(check);
-			std::string sha1 = cloudgameZero::getFileSha1(check);
-			if (size != c_size)
-			{
-				error = 3;
-				bus.post("verify_failed", &error);
-			}
-			else if (sha1 != c_sha1)
-			{
-				error = 4;
-				bus.post("verify_failed", &error);
-			}
-			return;
-		}
-		curl.cleanup();
-	}
-}
-
 int main(int argc, CHAR** argv)
 {
 	auto logger = Experiment::log::zeroLogA::getLogger();
@@ -211,14 +108,17 @@ int main(int argc, CHAR** argv)
 			exit(0);
 		}
 	);*/
-	std::cout << "wuaueng.dll size = " << std::filesystem::file_size("wuaueng.dll") << "\n";
-	std::cout << "WaaSMedicSvc.dll size = " << std::filesystem::file_size("WaaSMedicSvc.dll") << "\n";
-	std::cout << "cloudgame.xml size = " << std::filesystem::file_size("cloudgame.xml") << "\n";
-	fixUpdate("cloudgame.json");
+	cgFix* cgfix = nullptr;
+	HRESULT hr = createInstance(&cgfix);
+	if (SUCCEEDED(hr))
+	{
+		std::cout << "成功创建实例!" << "\n";
+	}
+	testNoti();
 	PRESSANYBOTTON();
 	if (INSTANCE_EVENT)
 	{
-		SetEvent(INSTANCE_EVENT);
+		/*SetEvent(INSTANCE_EVENT);
 		if (ERROR_ALREADY_EXISTS == GetLastError())
 		{
 			ToastPlatformAPI::ToastTemplate Toast(ToastPlatformEnums::ToastTemplateType::Text02);
@@ -233,11 +133,11 @@ int main(int argc, CHAR** argv)
 			Notification.show(Toast, new ToastPlatformAPI::PreDefineHandler);
 			std::this_thread::sleep_for(std::chrono::milliseconds(wait));
 			return 0xB;
-		}
+		}*/
 	}
 	else
 	{
-		ToastPlatformAPI::ToastTemplate Toast(ToastPlatformEnums::ToastTemplateType::Text02);
+		/*ToastPlatformAPI::ToastTemplate Toast(ToastPlatformEnums::ToastTemplateType::Text02);
 		Toast.setFirstLine(L"错误!");
 		Toast.setSecondLine(L"程序无法获取自己的实例!");
 		INT64 wait = 5000;
@@ -248,7 +148,7 @@ int main(int argc, CHAR** argv)
 		Notification.Init();
 		Notification.show(Toast, new ToastPlatformAPI::PreDefineHandler);
 		std::this_thread::sleep_for(std::chrono::milliseconds(wait));
-		return 0xA;
+		return 0xA;*/
 	}
 	auto list = Experiment::makeArgumentsView(argc, argv);
 	WindowsHookA Hook;
