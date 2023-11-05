@@ -106,10 +106,14 @@ EN:
 #pragma warning(push)
 #pragma warning(disable : CLOUDGAME_FIX_ZERO_DISABLE_WARNING)
 
+#ifndef CLOUDGAMEFIX_WARNING
+#define CLOUDGAMEFIX_WARNING(MESSAGE) __pragma("Warning : " __FILE__ "(" _CRT_STRINGIZE(__LINE__) "): " MESSAGE)
+#endif
+
 #if !EnableZeroLibrayExceptions
 #if EnableZeroSAL
 #ifndef NO_ZEROLIBRAY_WARNING
-#pragma message("If The Marco \"EnableZeroLibrayExceptions\" Not Enable,\
+CLOUDGAMEFIX_WARNING("If The Marco \"EnableZeroLibrayExceptions\" Not Enable,\
 	This message will always warn you when you are trying to compile this file,\
 	To Disable The Warning,Using NO_ZEROLIBRAY_WARNING Macro To Disable It Or Enable The Exception Macro\
 ")
@@ -129,6 +133,12 @@ EN:
 
 static_assert(__Result_cg, "If You Want Compile This Libray,Please Install Dependent Libray: rapidjson & boost_stacktrace");
 
+#if !__has_include("cloudgamefix.cpp")
+#ifndef __NO_CLODGAMEFIX_CPP_FILE
+CLOUDGAMEFIX_WARNING("Although the total header file provides many functions, without an accompanying cpp file, parts of the interface may not be available (compilation fails).")
+#endif
+#endif
+
 #if defined(_MSC_VER) // Using MSVC || 使用MSVC编译
 
 #if _MSC_VER >= 1937 // Visual Studio 2022
@@ -136,7 +146,7 @@ static_assert(__Result_cg, "If You Want Compile This Libray,Please Install Depen
 #else // Maybe Not Visual Studio 2022 || 可能不是Visual Studio 2022
 #if _MSC_VER >= 1928 // Is Visual Studio 2019 || 使用了Visual Studio 2019
 #if !DisableVisualStudio2019_Warn_cg
-#pragma message("You're tring To Using Visual Studio 2019 To Compile This Project,But Visual Studio 2022 Are More Better")
+CLOUDGAMEFIX_WARNING("You're tring To Using Visual Studio 2019 To Compile This Project,But Visual Studio 2022 Are More Better")
 #endif //DisableVisualStudio2019_Warn_cg
 #define __Is_MSVC_And_Support true
 #else // Visual Studio 2017 or lower
@@ -164,9 +174,7 @@ static_assert(__Has_reached_cpp20_standard_cg, "You Must Using C++20 Standard To
 
 /* The compilation check field is over */
 
-#if __Has_reached_cpp20_standard_cg
 #define MakeCloudgameInterface(X) struct __declspec(uuid(X)) __declspec(novtable)
-#endif
 
 /* Start building the namespace framework */
 namespace cloudgameZero
@@ -192,12 +200,102 @@ namespace cloudgameZero
 		namespace Event
 		{
 		}
+
+		template<class Ty, class Other = Ty>
+		constexpr Ty __builtin_exchange(Ty& _Val, Other&& _New_val) noexcept
+		{
+			Ty _Old_val = static_cast<Ty&&>(_Val);
+			_Val = static_cast<Other&&>(_New_val);
+			return _Old_val;
+		}
 	}
 	namespace coro
 	{
 	}
 	namespace Foundation
 	{
+		template <typename Ty>
+		class cloudgamePtr
+		{
+		public:
+			explicit cloudgamePtr() = default;
+
+			cloudgamePtr(decltype(nullptr)) : ptr(nullptr){}
+
+			template<class U>
+			cloudgamePtr(U* other) : ptr(other){}
+
+			cloudgamePtr(cloudgamePtr&& other) : ptr(nullptr)
+			{
+				if (this != reinterpret_cast<cloudgamePtr*>(&reinterpret_cast<unsigned char&>(other)))
+					swap(other);
+			}
+
+			template<class U>
+			cloudgamePtr(cloudgamePtr<U>&& other)
+			{
+				ptr = Infomation::__builtin_exchange(other.ptr, nullptr);
+			}
+
+			~cloudgamePtr()
+			{
+				release();
+			}
+
+			cloudgamePtr& operator=(decltype(__nullptr))
+			{
+				release();
+				return *this;
+			}
+
+			cloudgamePtr& operator=(cloudgamePtr&& other)
+			{
+				cloudgamePtr(static_cast<cloudgamePtr&&>(other)).swap(*this);
+				return *this;
+			}
+
+			template<class U>
+			cloudgamePtr& operator=(cloudgamePtr<U>&& other)
+			{
+				cloudgamePtr(static_cast<cloudgamePtr<U>&&>(other)).swap(*this);
+				return *this;
+			}
+
+			inline void swap(cloudgamePtr&& r)
+			{
+				ptr = Infomation::__builtin_exchange(r.ptr, nullptr);
+			}
+
+			inline operator bool()
+			{
+				return get() != nullptr;
+			}
+
+			inline Ty* get()
+			{
+				return ptr;
+			}
+
+			inline Ty* operator->()
+			{
+				return ptr;
+			}
+
+			inline void reset()
+			{
+				return release();
+			}
+
+			inline void release()
+			{
+				if (ptr != nullptr)
+					delete ptr;
+			}
+
+		private:
+			Ty* ptr = nullptr;
+		};
+
 		namespace dynamincLibrayFunc
 		{
 			namespace function
@@ -254,18 +352,47 @@ namespace cloudgameZero
 	{
 		namespace API
 		{
-			namespace Event
-			{
-			}
+			__interface ToastPlatformHandler;
 			namespace Libray
 			{
 				namespace Util
 				{
 				}
 			}
+			class ToastTemplate;
 		}
 		namespace Enums
 		{
+			enum class ToastError
+			{
+				NoError,
+				NotInitialized,
+				SystemNotSupported,
+				ShellLinkNotCreated,
+				InvalidAppUserModelID,
+				InvalidParameters,
+				InvalidHandler,
+				NotDisplayed,
+				UnknownError
+			};
+
+			enum ShortcutResult
+			{
+				SHORTCUT_UNCHANGED = 0,
+				SHORTCUT_WAS_CHANGED = 1,
+				SHORTCUT_WAS_CREATED = 2,
+				SHORTCUT_MISSING_PARAMETERS = -1,
+				SHORTCUT_INCOMPATIBLE_OS = -2,
+				SHORTCUT_COM_INIT_FAILURE = -3,
+				SHORTCUT_CREATE_FAILED = -4
+			};
+
+			enum class ShortcutPolicy
+			{
+				SHORTCUT_POLICY_IGNORE,
+				SHORTCUT_POLICY_REQUIRE_NO_CREATE,
+				SHORTCUT_POLICY_REQUIRE_CREATE,
+			};
 		}
 	}
 	namespace Experiment
@@ -412,6 +539,8 @@ namespace cloudgameZero
 			static std::mutex mutexLock;
 			constexpr std::string_view urlLinkRegex = R"(^(https:\/\/|http:\/\/|ftp:\/\/).+(\/)?.+)";
 			constexpr std::string_view lnkPathRegex = R"(^([a-z]|[A-Z]){1}:((\\\\)|(\\/)|(\\\\)).+(\.lnk)$)";
+			constexpr std::string_view guidRe = R"(^\{([A-Z]|[0-9]){8}-([A-Z]|[0-9]){4}-([A-Z]|[0-9]){4}-([A-Z]|[0-9]){4}-([A-Z]|[0-9]){12}\}$)";
+			constexpr std::string_view guidReSec = R"(^([A-Z]|[0-9]){8}-([A-Z]|[0-9]){4}-([A-Z]|[0-9]){4}-([A-Z]|[0-9]){4}-([A-Z]|[0-9]){12}$)";
 		}
 		
 		/* Three callback temporary functions for curl */
@@ -547,6 +676,11 @@ namespace cloudgameZero
 		static bool isSupportingModernFeatures();
 
 		static bool isWin10AnniversaryOrHigher();
+
+		template<typename Ty>
+		concept __cginterface = std::is_class_v<Ty> && std::is_base_of_v<IUnknown,Ty>;
+
+		static std::unordered_map<std::string, delegate<void*>> factoryMapping;
 	}
 
 	using logLevel = Infomation::level;
@@ -908,73 +1042,6 @@ namespace cloudgameZero
 		data = std::regex_replace(data, std::regex("\n"), "");
 		return data;
 	}
-
-	/*
-	zero库事件总线流程图
-
-					   ┌─────┐			 ┌────────--┐			┌──────────────-┐			 ┌───────────────┐
-	EventBus : post -> │Start├-──→───-──-┤Pass Event├-──────────┤Is Task Exists?├────NO─→───-┤	   Return	 ├───→──────┐
-					   └────-┘			 └──────────┘			└──────┬───────-┘			 └───────────────┘			│
-																	   │												│
-																	  YES												│
-																	   │												│
-														 ┌-────────────┴───────────────┐								│
-														 │	Create std::jthread Task   │								│
-														 │	Each Task Will Execute In  │								│
-														 │			The Thread		   │								│
-														 │	Every Thread Using Deatch  │								│
-														 └-────────────┬───────────────┘								│
-																	   │												│
-														 ┌────────────-┴───────-───┐									│
-														 │  Has Variable Address   │									│
-														 └-────────────┬──────────-┘									│
-																	   │												│
-														 ┌-─YES───────-┴────────NO───────┐								│
-														 │								 │								│
-												┌────────┴───────────┐					 │								│
-												│Pass in the variable│					 │								│
-												│		Address		 |					 │								│
-												│	To The Callback	 │					 │								│
-												└-────-──┬--────-────┘					 │								│
-														 │					   ┌────────-┴─────────┐					│
-														 │					   │ Pass The Nullptr  │					│
-														 │					   │  To The Cacllback │					│
-														 │					   └-────-───┬-────-───┘					│
-														 │								 │								│
-														 └────────────→──────────────────┼────────────←─────────────────┘																			 │
-																						 │
-																						 │
-																				   ┌─────┴─────┐
-																				   │	END	   │
-																				   └───────────┘
-
-
-
-																									  ┌─────────────────────────────┐
-																									  NO							│
-																									  │							    │
-							┌─────────────────────-┐		  ┌-─────────────────┐		  ┌───────────┴────────────-┐			    │
-	EventBus : subscribe -> │Start And Record Event├-──→───-──┤ Open Thread Lock ├────────┤	Check Callback Is Null  ├──YES────┐	    │
-							└-───────────────────-─┘		  └--────-─┬────-────┘        └--────-─-────---────-─-──┘  		  │	    │
-																	   │													  │     │
-																	 ERROR													  │     │
-																	   │													  │	    │
-																	   │													  │	    │
-																	   │				  ┌──────────────────┐				  │	    │
-																	   └-─────────────────┤	Throw Exceptions ├───────────────-┘	    │
-																						  └-─────-──┬────────┘						│
-																									│							    │
-								┌───────────┐					┌───────────────────────────────────┘							    │
-								│	 End	├───────────────────┤																    │
-								│  If Task	│					│																    │
-								│  Already	│					│																    │
-								│	 Add	│					│																    │
-								│Return Task│					│																    │
-								│	 Id		│					│																    │
-								└───────────┘					│			   ┌─────────────────────┐								│
-																└──────────────┤   Add Task To List  ├──────────────────────────────┘
-																			   └-────────────────────┘
-	*/
 
 	/* 一个支持异步和线程安全的基本事件总线系统 */
 	class EventBus
@@ -1759,6 +1826,12 @@ namespace cloudgameZero
 	/* cloudgamefixZero的基础库命名空间，存放了程序需要的函数和常量，是最基础的依赖实现部分 */
 	namespace Foundation
 	{
+		template<typename Ty, typename ... Args>
+		cloudgamePtr<Ty> make(Args... args)
+		{
+			return cloudgamePtr<Ty>(new Ty(std::forward<Ty>(args...)));
+		}
+
 		/* 存储关于动态链接库的函数和常量 */
 		namespace dynamincLibrayFunc
 		{
@@ -6467,11 +6540,30 @@ namespace cloudgameZero
 			virtual int setRepoFilestream() = 0;
 		};
 
-		MakeCloudgameInterface("F4884B4B-0A54-4DB9-93C0-316B8BA8DBBD")
-		notification
+		MakeCloudgameInterface("15DD4DD4-3E31-4F13-8E40-D88609D80B06")
+		WinNotification : public IUnknown
 		{
 		public:
+			
+			virtual bool Init(_Out_opt_ ToastPlatform::Enums::ToastError * error = nullptr) = 0;
+			virtual bool isInit() const = 0;
+			virtual std::wstring const& getAppName() const = 0;
+			virtual std::wstring const& getAppUserModelId() const = 0;
+			virtual void setAppUserModelId(_In_ std::wstring const& aumi) = 0;
+			virtual void setAppName(_In_ std::wstring const& AppName) = 0;
+			virtual void setShortcutPolicy(_In_ ToastPlatform::Enums::ShortcutPolicy policy) = 0;
+			virtual bool hide(_In_ INT64 id) = 0;
+			/**
+			 * 
+			 * Shows a Toast notification.
+			 * \param toast The ToastTemplate containing notification data.
+			 * \param eventHandler The event handler for the notification.
+			 * \param error Pointer to store error code if an error occurs.
+			 * \return The ID of the displayed notification, or -1 if an error occurs.
+			 */
+			virtual INT64 show(_In_ ToastPlatform::API::ToastTemplate const& toast, _In_ ToastPlatform::API::ToastPlatformHandler* eventHandler, _In_opt_ ToastPlatform::Enums::ToastError* error = nullptr) = 0;
 
+			virtual void clear() = 0;
 		};
 
 		/* 存储内部接口的声明 */
@@ -6480,6 +6572,14 @@ namespace cloudgameZero
 			/* 存储子类重写的具体实现，所有cloudgameFixZero派生的cpp文件将在此命名空间声明自己的对应类 */
 			namespace Implement
 			{
+				/* 
+				这是一个用于派发实例的容器，键值通常为GUID，带{}，如: {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}
+				而映射项为一个委托函数，委托函数应返回GUID对应实例的子类地址
+				注：
+				为了方便注册实例，在Interface命名空间下提供了registryInterface函数用于注册实例
+				*/
+				extern std::unordered_map<std::string, delegate<void*>> registry;
+
 				class __InternalDateTime : virtual public cloudgameZero::Foundation::Warpper::InternalDateTime
 				{
 				public:
@@ -6569,11 +6669,6 @@ namespace cloudgameZero
 							if (!ppvObject)
 							{
 								return E_POINTER;
-							}
-							if (riid == __uuidof(IReference<ABI::Windows::Foundation::DateTime>))
-							{
-								*ppvObject = dynamic_cast<IUnknown*>(dynamic_cast<IReference<ABI::Windows::Foundation::DateTime>*>(this));
-								return S_OK;
 							}
 							return E_NOINTERFACE;
 						}
@@ -6755,6 +6850,7 @@ namespace cloudgameZero
 				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolA;
 				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolW;
 				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolA_s;
+				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IWinNotification;
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_CGTOOL;	/* cgTool接口ID */
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_CGTOOLS;	/* 设计用于安全功能的cgTool接口ID，与cgTool一起提供 */
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_CGSOFTWARE;	/* 设计基于cgTool安全功能的软件类接口 */
@@ -6762,6 +6858,55 @@ namespace cloudgameZero
 
 				extern IUnknown* Query(_In_ const IID& iid);
 			}
+		}
+
+		template<Infomation::__cginterface interfaceTy>
+		static void registryInterface(_In_ const IID& iid)
+		{
+			using namespace Foundation::Tool;
+			static EventBus bus;
+			static HRESULT _hr = 0;
+			LPOLESTR guid{};
+			HRESULT hr = StringFromIID(iid, &guid);
+			if (FAILED(hr)) {
+				_hr = hr;
+				bus.post("error_iid",&_hr);
+				return;
+			}
+			if (sigmaInterface::Implement::registry.find(WideToMuti(guid)) != sigmaInterface::Implement::registry.end())
+			{
+				bus.post("iid_already_exists");
+				return;
+			}
+			sigmaInterface::Implement::registry.insert({ WideToMuti(guid),[]() {return new interfaceTy; }});
+		}
+
+		template<Infomation::__cginterface interfaceTy>
+		static void registryInterface(_In_ std::string guid)
+		{
+			using namespace Foundation::Tool;
+			static EventBus bus;
+			static HRESULT _hr = 0;
+			bool notMatch = true;
+			if (guid.size() != 38 || guid.size() != 36)
+				return;
+			if (std::regex_match(guid, std::regex(Infomation::Secutriy::guidRe.data())))
+				notMatch = false;
+			else if (std::regex_match(guid, std::regex(Infomation::Secutriy::guidReSec.data()))){
+				guid = "{" + guid + "}";
+				notMatch = false;
+			}
+			if (notMatch) 
+			{
+				bus.post("invalid_args");
+				return;
+			}
+			if (sigmaInterface::Implement::registry.find(guid) != sigmaInterface::Implement::registry.end())
+			{
+				bus.post("iid_already_exists");
+				return;
+			}
+			sigmaInterface::Implement::registry.insert({ guid,[]() {return new interfaceTy; } });
 		}
 
 		/**
@@ -6802,7 +6947,7 @@ namespace cloudgameZero
 		 * \param ppv Accepts a pointer to hold the address of the instance
 		 * \return 
 		 */
-		template<cloudgameInstance Ty>
+		template<cloudgameInstance Ty> requires requires(Ty T) { __uuidof(T); }
 		inline HRESULT createInstance(_Out_ Ty** ppv)
 		{
 			return createInstance(__uuidof(Ty), (void**)ppv);
@@ -6815,7 +6960,7 @@ namespace cloudgameZero
 		 * \param ppv Accepts a unique_ptr to hold the address of the instance
 		 * \return
 		 */
-		template<cloudgameInstance Ty>
+		template<cloudgameInstance Ty> requires requires(Ty T) { __uuidof(T); }
 		inline HRESULT createInstance(_Out_ std::unique_ptr<Ty>& ppv)
 		{
 			return createInstance(__uuidof(Ty), (void**)&ppv);
@@ -6828,7 +6973,7 @@ namespace cloudgameZero
 		 * \param ppv Accepts a shared_ptr to hold the address of the instance
 		 * \return
 		 */
-		template<cloudgameInstance Ty>
+		template<cloudgameInstance Ty> requires requires(Ty T) { __uuidof(T); }
 		inline HRESULT createInstance(_Out_ std::shared_ptr<Ty>& ppv)
 		{
 			return createInstance(__uuidof(Ty), (void**)&ppv);
@@ -6845,6 +6990,73 @@ namespace cloudgameZero
 		inline HRESULT createInstance(_Out_ ComPtr<Ty>& ppv)
 		{
 			return createInstance(__uuidof(Ty), (void**)&ppv);
+		}
+
+		template<cloudgameInstance Ty> requires requires(Ty T){__uuidof(T);}
+		inline HRESULT createInstance(_Out_ Foundation::cloudgamePtr<Ty>& ppv)
+		{
+			return createInstance(__uuidof(Ty), (void**)&ppv);
+		}
+
+		namespace factory
+		{
+			constexpr LPCSTR eventAlreadyExists = "mapping_already_exists";
+			constexpr LPCSTR eventNotFound = "mapping_not_found";
+			constexpr LPCSTR eventErrorInstance = "error_factory_instance";
+
+			template<typename Ty, typename... Args>
+			void registry(std::string mapping, Args... args)
+			{
+				static_assert(std::is_class_v<Ty>, "To register a factory, use a class, not a normal data type!");
+				EventBus bus;
+				if (Infomation::factoryMapping.find(mapping) != Infomation::factoryMapping.end()) {
+					bus.post(eventAlreadyExists);
+					return;
+				}
+				Infomation::factoryMapping.insert({ mapping,[]() -> void* {return new Ty(args...); } });
+			}
+
+			template<typename Ty>
+			inline static Ty* getInstance(std::string mapping)
+			{
+				static_assert(std::is_class_v<Ty> && std::is_abstract_v<Ty>, "To get a factory instance, the accepted data type must be an abstract class!");
+				EventBus bus;
+				if (Infomation::factoryMapping.find(mapping) == Infomation::factoryMapping.end()) {
+					bus.post(eventNotFound);
+					return nullptr;
+				}
+				return reinterpret_cast<Ty*>(Infomation::factoryMapping[mapping]());
+			}
+
+			template<typename Ty, typename Derived>
+			inline static Ty* getInstance(std::string mapping)
+			{
+				static_assert(std::is_base_of_v<Ty, Derived>, "To retrieve the factory instance, Ty must be a base class of Derived");
+				EventBus bus;
+				if (Infomation::factoryMapping.find(mapping) == Infomation::factoryMapping.end()) {
+					bus.post(eventNotFound);
+					return nullptr;
+				}
+				try
+				{
+					Ty* ptr = Infomation::factoryMapping[mapping]();
+					return nullptr;
+				}
+				catch (...)
+				{
+					bus.post(eventErrorInstance);
+					return nullptr;
+				}
+			}
+
+			template<typename Ty>
+			inline static void releaseInstance(Ty* ptr)
+			{
+				static_assert(std::is_class_v<Ty>, "This function is only used to free the instance of the factory");
+				if (!ptr)
+					return;
+				return ::operator delete(ptr);
+			}
 		}
 	}
 
@@ -6985,37 +7197,6 @@ namespace cloudgameZero
 				Call9, Call10,
 			};
 			enum class CropHint { Square, Circle };
-
-			enum class ToastError
-			{
-				NoError,
-				NotInitialized,
-				SystemNotSupported,
-				ShellLinkNotCreated,
-				InvalidAppUserModelID,
-				InvalidParameters,
-				InvalidHandler,
-				NotDisplayed,
-				UnknownError
-			};
-
-			enum ShortcutResult
-			{
-				SHORTCUT_UNCHANGED = 0,
-				SHORTCUT_WAS_CHANGED = 1,
-				SHORTCUT_WAS_CREATED = 2,
-				SHORTCUT_MISSING_PARAMETERS = -1,
-				SHORTCUT_INCOMPATIBLE_OS = -2,
-				SHORTCUT_COM_INIT_FAILURE = -3,
-				SHORTCUT_CREATE_FAILED = -4
-			};
-
-			enum class ShortcutPolicy
-			{
-				SHORTCUT_POLICY_IGNORE,
-				SHORTCUT_POLICY_REQUIRE_NO_CREATE,
-				SHORTCUT_POLICY_REQUIRE_CREATE,
-			};
 		}
 		/* 用于获取API */
 		namespace API
@@ -7086,9 +7267,7 @@ namespace cloudgameZero
 									Dom["outToTerminal"]["rootLogger"]["level"].SetString("Info");
 								}
 								else
-								{
 									Dom["outToTerminal"]["Enable"].SetBool(false);
-								}
 							}
 						, "WinToastPlatform", "Main");
 						return &INSTANCE;
@@ -7137,9 +7316,7 @@ namespace cloudgameZero
 						HRESULT hr = xmlDocument.As<IXmlNodeSerializer>(&ser);
 						hr = ser->GetXml(&xml);
 						if (SUCCEEDED(hr))
-						{
 							return cloudgameZero::Foundation::dynamincLibrayFunc::function::WindowsGetStringRawBuffer(xml, nullptr);
-						}
 						return nullptr;
 					}
 
@@ -7151,16 +7328,16 @@ namespace cloudgameZero
 					static HRESULT setNodeStringValue(_In_ std::wstring const& string, _Out_opt_ IXmlNode* node, _Out_ IXmlDocument* xml) {
 						ComPtr<IXmlText> textNode;
 						HRESULT hr = xml->CreateTextNode(cloudgameZero::Foundation::Warpper::HstringWrapper(string).Get(), &textNode);
-						if (SUCCEEDED(hr))
-						{
+						do {
+							if (FAILED(hr))
+								break;
 							ComPtr<IXmlNode> stringNode;
 							hr = textNode.As(&stringNode);
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<IXmlNode> appendedChild;
-								hr = node->AppendChild(stringNode.Get(), &appendedChild);
-							}
-						}
+							if (FAILED(hr))
+								break;
+							ComPtr<IXmlNode> appendedChild;
+							hr = node->AppendChild(stringNode.Get(), &appendedChild);
+						} while (false);
 						return hr;
 					}
 
@@ -7168,16 +7345,16 @@ namespace cloudgameZero
 					{
 						ComPtr<ABI::Windows::Data::Xml::Dom::IXmlAttribute> srcAttribute;
 						HRESULT hr = xml->CreateAttribute(cloudgameZero::Foundation::Warpper::HstringWrapper(name).Get(), &srcAttribute);
-						if (SUCCEEDED(hr))
-						{
+						do {
+							if (FAILED(hr))
+								break;
 							ComPtr<IXmlNode> node;
 							hr = srcAttribute.As(&node);
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<IXmlNode> pNode;
-								hr = attributeMap->SetNamedItem(node.Get(), &pNode);
-							}
-						}
+							if (FAILED(hr))
+								break;
+							ComPtr<IXmlNode> pNode;
+							hr = attributeMap->SetNamedItem(node.Get(), &pNode);
+						} while (false);
 						return hr;
 					}
 
@@ -7186,43 +7363,38 @@ namespace cloudgameZero
 					{
 						ComPtr<IXmlNodeList> rootList;
 						HRESULT hr = xml->GetElementsByTagName(cloudgameZero::Foundation::Warpper::HstringWrapper(root_node).Get(), &rootList);
-						if (SUCCEEDED(hr))
-						{
+						do {
+							if (FAILED(hr))
+								break;
 							ComPtr<IXmlNode> root;
 							hr = rootList->Item(0, &root);
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<ABI::Windows::Data::Xml::Dom::IXmlElement> audioElement;
-								hr = xml->CreateElement(cloudgameZero::Foundation::Warpper::HstringWrapper(element_name).Get(), &audioElement);
-								if (SUCCEEDED(hr))
-								{
-									ComPtr<IXmlNode> audioNodeTmp;
-									hr = audioElement.As(&audioNodeTmp);
-									if (SUCCEEDED(hr))
-									{
-										ComPtr<IXmlNode> audioNode;
-										hr = root->AppendChild(audioNodeTmp.Get(), &audioNode);
-										if (SUCCEEDED(hr))
-										{
-											ComPtr<IXmlNamedNodeMap> attributes;
-											hr = audioNode->get_Attributes(&attributes);
-											if (SUCCEEDED(hr))
-											{
-												for (auto const& it : attribute_names)
-												{
-													hr = addAttribute(xml, it, attributes.Get());
-												}
-											}
-										}
-									}
-								}
-							}
-						}
+							if (FAILED(hr))
+								break;
+							ComPtr<IXmlElement> audioElement;
+							hr = xml->CreateElement(cloudgameZero::Foundation::Warpper::HstringWrapper(element_name).Get(), &audioElement);
+							if (FAILED(hr))
+								break;
+							ComPtr<IXmlNode> audioNodeTmp;
+							hr = audioElement.As(&audioNodeTmp);
+							if (FAILED(hr))
+								break;
+							ComPtr<IXmlNode> audioNode;
+							hr = root->AppendChild(audioNodeTmp.Get(), &audioNode);
+							if (FAILED(hr))
+								break;
+							ComPtr<IXmlNamedNodeMap> attributes;
+							hr = audioNode->get_Attributes(&attributes);
+							if (FAILED(hr))
+								break;
+							for (auto const& it : attribute_names)
+								hr = addAttribute(xml, it, attributes.Get());
+						} while (false);
 						return hr;
 					}
 
 				}
 			}
+
 			/* 抽象接口，若调用通知，请实现此接口所有的抽象方法并传入 */
 			__interface ToastPlatformHandler
 			{
@@ -7231,85 +7403,78 @@ namespace cloudgameZero
 				virtual void Dismissed(Enums::ToastDismissalReason state) const = 0;
 				virtual void Failed() const = 0;
 			};
-
-			/* Toast事件接口 */
-			namespace Event
+			/* 在调用时showToast时，将会安装事件 */
+			template<typename FunctorT>
+			HRESULT setEventHandler(
+				_In_ ABI::Windows::UI::Notifications::IToastNotification* notification,
+				_In_ std::shared_ptr<ToastPlatformHandler> eventHandler,
+				_In_ INT64 expirationTime,
+				_Out_ EventRegistrationToken& activatedToken,
+				_Out_ EventRegistrationToken& dismissedToken,
+				_Out_ EventRegistrationToken& failedToken,
+				_In_ FunctorT&& markAsReadyForDeletionFunc
+			)
 			{
-				/* 在调用时showToast时，将会安装事件 */
-				template<typename FunctorT>
-				HRESULT setEventHandler(
-					_In_ ABI::Windows::UI::Notifications::IToastNotification* notification,
-					_In_ std::shared_ptr<ToastPlatformHandler> eventHandler,
-					_In_ INT64 expirationTime,
-					_Out_ EventRegistrationToken& activatedToken,
-					_Out_ EventRegistrationToken& dismissedToken,
-					_Out_ EventRegistrationToken& failedToken,
-					_In_ FunctorT&& markAsReadyForDeletionFunc
-				)
-				{
-					auto activated = [eventHandler, markAsReadyForDeletionFunc](IToastNotification* notify, IInspectable* inspectable)
-						{
-							ComPtr<IToastActivatedEventArgs> activatedEventArgs;
-							HRESULT hr = inspectable->QueryInterface(activatedEventArgs.GetAddressOf());
-							if (SUCCEEDED(hr))
+				auto activated = [eventHandler, markAsReadyForDeletionFunc](IToastNotification* notify, IInspectable* inspectable)
+					{
+						ComPtr<IToastActivatedEventArgs> activatedEventArgs;
+						HRESULT hr = inspectable->QueryInterface(activatedEventArgs.GetAddressOf());
+						do {
+							if (FAILED(hr))
+								break;
+							HSTRING argumentsHandle;
+							hr = activatedEventArgs->get_Arguments(&argumentsHandle);
+							if (FAILED(hr))
+								break;
+							PCWSTR arguments = Libray::Util::AsString(argumentsHandle);
+							if (arguments && *arguments)
 							{
-								HSTRING argumentsHandle;
-								hr = activatedEventArgs->get_Arguments(&argumentsHandle);
-								if (SUCCEEDED(hr))
-								{
-									PCWSTR arguments = Libray::Util::AsString(argumentsHandle);
-									if (arguments && *arguments)
-									{
-										eventHandler->Activated(static_cast<int>(wcstol(arguments, nullptr, 10)));
-										cloudgameZero::Foundation::dynamincLibrayFunc::function::WindowsDeleteString(argumentsHandle);
-										markAsReadyForDeletionFunc();
-										return S_OK;
-									}
-									cloudgameZero::Foundation::dynamincLibrayFunc::function::WindowsDeleteString(argumentsHandle);
-								}
+								eventHandler->Activated(static_cast<int>(wcstol(arguments, nullptr, 10)));
+								cloudgameZero::Foundation::dynamincLibrayFunc::function::WindowsDeleteString(argumentsHandle);
+								markAsReadyForDeletionFunc();
+								return S_OK;
 							}
+							cloudgameZero::Foundation::dynamincLibrayFunc::function::WindowsDeleteString(argumentsHandle);
 							eventHandler->Activated();
 							markAsReadyForDeletionFunc();
-							return S_OK;
-						};
+						} while (false);
+						return S_OK;
+					};
 
-					auto dismissed = [eventHandler, expirationTime, markAsReadyForDeletionFunc](IToastNotification* notify, IToastDismissedEventArgs* e)
-						{
-							ToastDismissalReason reason;
-							if (SUCCEEDED(e->get_Reason(&reason)))
-							{
-								if (reason == ToastDismissalReason_UserCanceled && expirationTime && cloudgameZero::Foundation::Warpper::InternalDateTime::Now() >= expirationTime)
-								{
-									reason = ToastDismissalReason_TimedOut;
-								}
-								eventHandler->Dismissed(static_cast<Enums::ToastDismissalReason>(reason));
-							}
-							markAsReadyForDeletionFunc();
-							return S_OK;
-						};
-
-					auto failed = [eventHandler, markAsReadyForDeletionFunc](IToastNotification* notify, IToastFailedEventArgs* e)
-						{
-							eventHandler->Failed();
-							markAsReadyForDeletionFunc();
-							return S_OK;
-						};
-
-					HRESULT hr = notification->add_Activated(Callback<Implements<RuntimeClassFlags<ClassicCom>, ITypedEventHandler<ToastNotification*, IInspectable*>>>(activated).Get(), &activatedToken);
-					if (SUCCEEDED(hr))
+				auto dismissed = [eventHandler, expirationTime, markAsReadyForDeletionFunc](IToastNotification* notify, IToastDismissedEventArgs* e)
 					{
-						hr = notification->add_Dismissed(Callback<Implements<RuntimeClassFlags<ClassicCom>, ITypedEventHandler<ToastNotification*, ToastDismissedEventArgs*>>>(dismissed).Get(), &dismissedToken);
-						if (SUCCEEDED(hr))
-						{
-							hr = notification->add_Failed(Callback<Implements<RuntimeClassFlags<ClassicCom>, ITypedEventHandler<ToastNotification*, ToastFailedEventArgs*>>>(failed).Get(), &failedToken);
-						}
-					}
-					return hr;
-				}
+						ToastDismissalReason reason;
+						do {
+							if (FAILED(e->get_Reason(&reason)))
+								break;
+							if (reason == ToastDismissalReason_UserCanceled && expirationTime && cloudgameZero::Foundation::Warpper::InternalDateTime::Now() >= expirationTime)
+								reason = ToastDismissalReason_TimedOut;
+							eventHandler->Dismissed(static_cast<Enums::ToastDismissalReason>(reason));
+							markAsReadyForDeletionFunc();
+						} while (false);
+						return S_OK;
+					};
+
+				auto failed = [eventHandler, markAsReadyForDeletionFunc](IToastNotification* notify, IToastFailedEventArgs* e)
+					{
+						eventHandler->Failed();
+						markAsReadyForDeletionFunc();
+						return S_OK;
+					};
+				HRESULT hr = notification->add_Activated(Callback<Implements<RuntimeClassFlags<ClassicCom>, ITypedEventHandler<ToastNotification*, IInspectable*>>>(activated).Get(), &activatedToken);
+				do {
+					if (FAILED(hr))
+						break;
+					hr = notification->add_Dismissed(Callback<Implements<RuntimeClassFlags<ClassicCom>, ITypedEventHandler<ToastNotification*, ToastDismissedEventArgs*>>>(dismissed).Get(), &dismissedToken);
+					if (SUCCEEDED(hr))
+						hr = notification->add_Failed(Callback<Implements<RuntimeClassFlags<ClassicCom>, ITypedEventHandler<ToastNotification*, ToastFailedEventArgs*>>>(failed).Get(), &failedToken);
+				} while (false);
+				return hr;
+
 			}
 
 			/* Windows通知将使用此类 */
-			class ToastTemplate{
+			class ToastTemplate {
 			public:
 				ToastTemplate(_In_ Enums::ToastTemplateType type = Enums::ToastTemplateType::ImageAndText02) : _type(type)
 				{
@@ -7355,19 +7520,14 @@ namespace cloudgameZero
 						this->_scenario = L"Default";
 						break;
 					case Enums::Scenario::Alarm:
-					{
 						this->_scenario = L"Alarm";
 						break;
-					}
 					case Enums::Scenario::IncomingCall:
-					{
 						this->_scenario = L"IncomingCall";
-					}   break;
+						break;
 					case Enums::Scenario::Reminder:
-					{
 						this->_scenario = L"Reminder";
 						break;
-					}
 					}
 					return;
 				}
@@ -7420,7 +7580,7 @@ namespace cloudgameZero
 				bool _inlineHeroImage{ false };
 				std::wstring _audioPath{};
 				std::wstring _attributionText{};
-				std::wstring _scenario{L"Default"};
+				std::wstring _scenario{ L"Default" };
 				INT64 _expiration = NULL;
 				Enums::AudioOption _audioOption = Enums::AudioOption::Default;
 				Enums::ToastTemplateType _type = Enums::ToastTemplateType::Text01;
@@ -7428,934 +7588,7 @@ namespace cloudgameZero
 				Enums::CropHint _cropHint = Enums::CropHint::Square;
 			};
 
-			class ToastNotification {
-			public:
-				explicit ToastNotification() : _isInitialized(false), _hasCoInitialized(false) {}
-				virtual ~ToastNotification()
-				{
-					try {
-						this->clear();
-						if (_hasCoInitialized) {
-							CoUninitialize();
-						}
-					}
-					catch (...)
-					{
-						PrintError("ToastNotification析构出现错误");
-						return;
-					}
-				}
-
-				static ToastNotification* instance()
-				{
-					static ToastNotification INSTANCE;
-					return &INSTANCE;
-				}
-
-				static bool isSupportingModernFeatures()
-				{
-					constexpr auto MinimumSupportedVersion = 6;
-					return Libray::Util::getRealOSVersion().dwMajorVersion > MinimumSupportedVersion;
-				}
-
-				static bool isWin10AnniversaryOrHigher()
-				{
-					return Libray::Util::getRealOSVersion().dwBuildNumber >= 14393;
-				}
-
-				static std::wstring configureAUMI(_In_ std::wstring const& companyName, _In_ std::wstring const& productName, _In_ std::wstring const& subProduct = std::wstring(), _In_ std::wstring const& versionInformation = std::wstring())
-				{
-					std::wstring aumi = companyName;
-					aumi += L"." + productName;
-					if (subProduct.length() > 0)
-					{
-						aumi += L"." + subProduct;
-						if (versionInformation.length() > 0)
-						{
-							aumi += L"." + versionInformation;
-						}
-					}
-					if (aumi.length() > SCHAR_MAX)
-					{
-						DEBUG_MESSAGE(L"错误：用户模型ID总长度不应该超过127");
-					}
-					return aumi;
-				}
-
-				static std::wstring const& getToastErrorMessage(_In_ Enums::ToastError error)
-				{
-					auto const iter = Libray::ToastErrors.find(error);
-					assert(iter != Libray::ToastErrors.end());
-					return iter->second;
-				}
-
-				virtual bool Init(_Out_opt_ Enums::ToastError* error = nullptr)
-				{
-					_isInitialized = false;
-					setError(error, Enums::ToastError::NoError);
-					if (_aumi.empty() || _appName.empty())
-					{
-						setError(error, Enums::ToastError::InvalidParameters);
-						Libray::Util::ToastPlatformLog()->warn("警告：你需要给aumi或者appname设置一个名称，而不是直接初始化");
-						return false;
-					}
-					if (_shortcutPolicy != Enums::ShortcutPolicy::SHORTCUT_POLICY_IGNORE)
-					{
-						if ((INT)createShortcut() < 0) {
-							setError(error, Enums::ToastError::ShellLinkNotCreated);
-							Libray::Util::ToastPlatformLog()->warn("如果要触发Toast通知：您必须提供了一个Aumi和一个在开始菜单的快捷方式(不应该忽略创建)");
-							return false;
-						}
-					}
-					if (FAILED(SetCurrentProcessExplicitAppUserModelID(_aumi.c_str())))
-					{
-						setError(error, Enums::ToastError::InvalidAppUserModelID);
-						Libray::Util::ToastPlatformLog()->error("无法设置aumi，某些设置可能出现了错误");
-						return false;
-					}
-					this->_isInitialized = true;
-					return this->_isInitialized;
-				}
-
-				virtual bool isInit() const { return this->_isInitialized; }
-				std::wstring const& getAppName() const { return this->_appName; };
-				std::wstring const& getAppUserModelId() const { return this->_aumi; };
-				void setAppUserModelId(_In_ std::wstring const& aumi) { this->_aumi = aumi; }
-				void setAppName(_In_ std::wstring const& AppName) { this->_appName = AppName; }
-				void setShortcutPolicy(_In_ Enums::ShortcutPolicy policy) { this->_shortcutPolicy = policy; }
-
-				virtual bool hide(_In_ INT64 id)
-				{
-					if (!isInit())
-					{
-						Libray::Util::ToastPlatformLog()->error("发生错误在隐藏吐司的时候，你需要初始化实例才能使用");
-						return false;
-					}
-					auto iter = _buffer.find(id);
-					if (iter == _buffer.end())
-					{
-						return false;
-					}
-					auto succeded = false;
-					auto notify = notifier(&succeded);
-					if (!succeded)
-					{
-						return false;
-					}
-					auto& notifyData = iter->second;
-					auto result = notify->Hide(notifyData.notification());
-					if (FAILED(result))
-					{
-						Libray::Util::ToastPlatformLog()->info("隐藏吐司失败！. 代码: {}", result);
-						return false;
-					}
-					notifyData.RemoveTokens();
-					_buffer.erase(iter);
-					return SUCCEEDED(result);
-				}
-
-				virtual INT64 show(_In_ ToastTemplate const& toast, _In_ ToastPlatformHandler* eventHandler, Enums::ToastError* error = nullptr)
-				{
-					using namespace cloudgameZero::Foundation::Warpper;
-					using namespace cloudgameZero::Foundation::dynamincLibrayFunc::function;
-					std::shared_ptr<ToastPlatformHandler> handler(eventHandler);
-					this->setError(error, Enums::ToastError::NoError);
-					INT64 id = -1;
-					if (!isInit())
-					{
-						this->setError(error, Enums::ToastError::NotInitialized);
-						Libray::Util::ToastPlatformLog()->warn("在启动通知的时候发生了错误，需要初始化实例才能启动");
-						return id;
-					}
-					if (!handler)
-					{
-						this->setError(error, Enums::ToastError::InvalidHandler);
-						Libray::Util::ToastPlatformLog()->error("无效的事件处理句柄，句柄不能为空指针");
-						return id;
-					}
-					ComPtr<IToastNotificationManagerStatics> notificationManager;
-					HRESULT hr = Wrap_GetActivationFactory(HstringWrapper(RuntimeClass_Windows_UI_Notifications_ToastNotificationManager).Get(), &notificationManager);
-					if (SUCCEEDED(hr))
-					{
-						ComPtr<IToastNotifier> notifier;
-						hr = notificationManager->CreateToastNotifierWithId(HstringWrapper(this->_aumi).Get(), &notifier);
-						if (SUCCEEDED(hr))
-						{
-							ComPtr<IToastNotificationFactory> notificationFactory;
-							hr = Wrap_GetActivationFactory(HstringWrapper(RuntimeClass_Windows_UI_Notifications_ToastNotification).Get(), &notificationFactory);
-							if (SUCCEEDED(hr))
-							{
-								/* 此处将会开始构建Toast xml文件 */
-								ComPtr<IXmlDocument> xmlDocument;
-								hr = notificationManager->GetTemplateContent(ABI::Windows::UI::Notifications::ToastTemplateType(toast.getType()), &xmlDocument);
-								if (SUCCEEDED(hr) && toast.isToastGeneric())
-								{
-									hr = this->setBindToastGenericHelper(xmlDocument.Get());
-								}
-								if (SUCCEEDED(hr))
-								{
-									UINT i = 0;
-									for (auto& it : toast.getTextFields())
-									{
-										hr = this->setTextFieldHelper(xmlDocument.Get(), toast.getTextField(Enums::TextField(i)), i);
-										i++;
-									}
-									// Modern feature are supported Windows > Windows 10
-									if (SUCCEEDED(hr) && isSupportingModernFeatures())
-									{
-										// Note that we do this *after* using toast.textFieldsCount() to
-										// iterate/fill the template's text fields, since we're adding yet another text field.
-										if (SUCCEEDED(hr) && !toast.getAttributionText().empty())
-										{
-											hr = setAttributionTextFieldHelper(xmlDocument.Get(), toast.getAttributionText());
-										}
-										std::array<WCHAR, 12> buf{};
-										for (std::size_t i = 0, actionsCount = toast.getActionsCount(); i < actionsCount && SUCCEEDED(hr); i++)
-										{
-											_snwprintf_s(buf.data(), buf.size(), _TRUNCATE, L"%zd", i);
-											hr = addActionHelper(xmlDocument.Get(), toast.getActionLabel(i), buf.data());
-										}
-										if (SUCCEEDED(hr))
-										{
-											hr = (toast.getAudioPath().empty() && toast.getAudioOption() == Enums::AudioOption::Default) ? hr : setAudioFieldHelper(xmlDocument.Get(), toast.getAudioPath(), toast.getAudioOption());
-										}
-										if (SUCCEEDED(hr) && toast.getDuration() != Enums::Duration::System)
-										{
-											hr = addDurationHelper(xmlDocument.Get(), (toast.getDuration() == Enums::Duration::Short) ? L"short" : L"long");
-										}
-										if (SUCCEEDED(hr))
-										{
-											hr = addScenarioHelper(xmlDocument.Get(), toast.getScenario());
-										}
-									}
-									else
-									{
-										Libray::Util::ToastPlatformLog()->warn(L"当前版本不支持该现代特性: -> (Actions/Sounds/Attributes)", Libray::Util::AsString(xmlDocument));
-									}
-									if (SUCCEEDED(hr))
-									{
-										bool isWin10AnniversaryOrAbove = ToastNotification::isWin10AnniversaryOrHigher();
-										bool isCircleCropHint = isWin10AnniversaryOrAbove ? toast.isCropHintCircle() : false;
-										hr = toast.hasImage() ? setImageFieldHelper(xmlDocument.Get(), toast.getImagePath(), toast.isToastGeneric(), isCircleCropHint) : hr;
-										if (SUCCEEDED(hr) && isWin10AnniversaryOrAbove && toast.hasHeroImage())
-										{
-											hr = setHeroImageHelper(xmlDocument.Get(), toast.getHeroImagePath(), toast.isInlineHeroImage());
-										}
-										if (SUCCEEDED(hr))
-										{
-											ComPtr<IToastNotification> notification;
-											hr = notificationFactory->CreateToastNotification(xmlDocument.Get(), &notification);
-											if (SUCCEEDED(hr))
-											{
-												INT64 expiration = 0, relativeExpiration = toast.getExpiration();
-												if (relativeExpiration > 0)
-												{
-													InternalDateTime* expirationDateTime =
-														dynamic_cast<InternalDateTime*>(
-															new Interface::sigmaInterface::Implement::__InternalDateTime(relativeExpiration));
-													expiration = *expirationDateTime;
-													hr = notification->put_ExpirationTime(expirationDateTime);
-													expirationDateTime->Release();
-												}
-												EventRegistrationToken activatedToken{}, dismissedToken{}, failedToken{};
-												GUID guid;
-												HRESULT hrGuid = CoCreateGuid(&guid);
-												id = guid.Data1;
-												if (SUCCEEDED(hr) && SUCCEEDED(hrGuid))
-												{
-													hr = Event::setEventHandler(notification.Get(), handler, expiration, activatedToken, dismissedToken,
-														failedToken, [this, id]() { markAsReadyForDeletion(id); });
-													if (FAILED(hr))
-													{
-														this->setError(error, Enums::ToastError::InvalidHandler);
-													}
-												}
-												if (SUCCEEDED(hr))
-												{
-													if (SUCCEEDED(hr))
-													{
-														this->_buffer.emplace(id, NotifyData(notification, activatedToken, dismissedToken, failedToken));
-														Libray::Util::ToastPlatformLog()->info(L"构建Toast得到的XML内容: {}", Libray::Util::AsString(xmlDocument));
-														hr = notifier->Show(notification.Get());
-														if (FAILED(hr))
-														{
-															this->setError(error, Enums::ToastError::NotDisplayed);
-														}
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-					return FAILED(hr) ? -1 : id;
-				}
-
-				virtual void clear()
-				{
-					auto succeded = false;
-					auto notify = notifier(&succeded);
-					if (!succeded)
-					{
-						return;
-					}
-					for (auto& data : _buffer)
-					{
-						auto& notifyData = data.second;
-						notify->Hide(notifyData.notification());
-						notifyData.RemoveTokens();
-					}
-					_buffer.clear();
-				}
-
-				virtual Enums::ShortcutResult createShortcut()
-				{
-					if (this->_aumi.empty() || this->_appName.empty())
-					{
-						Libray::Util::ToastPlatformLog()->warn("错误：用户模型或用户名中，其中有一个为空");
-						return Enums::ShortcutResult::SHORTCUT_MISSING_PARAMETERS;
-					}
-					if (!this->_hasCoInitialized)
-					{
-						HRESULT initHr = CoInitializeEx(nullptr, COINIT::COINIT_MULTITHREADED);
-						if (initHr != RPC_E_CHANGED_MODE)
-						{
-							if (FAILED(initHr) && initHr != S_FALSE)
-							{
-								Libray::Util::ToastPlatformLog()->error("无法初始化COM库组件!");
-								return Enums::ShortcutResult::SHORTCUT_COM_INIT_FAILURE;
-							}
-							else
-							{
-								this->_hasCoInitialized = true;
-							}
-						}
-					}
-
-					bool wasChanged;
-					HRESULT hr = validateShellLinkHelper(wasChanged);
-					if (SUCCEEDED(hr)) {
-						return wasChanged ? Enums::ShortcutResult::SHORTCUT_WAS_CHANGED : Enums::ShortcutResult::SHORTCUT_UNCHANGED;
-					}
-
-					hr = createShellLinkHelper();
-					return SUCCEEDED(hr) ? Enums::ShortcutResult::SHORTCUT_WAS_CREATED : Enums::ShortcutResult::SHORTCUT_CREATE_FAILED;
-				}
-			protected:
-				interface NotifyData
-				{
-					explicit NotifyData() = default;
-					explicit NotifyData(
-						_In_ ComPtr<IToastNotification> notify,
-						_In_ EventRegistrationToken activatedToken,
-						_In_ EventRegistrationToken dismissedToken,
-						_In_ EventRegistrationToken failedToken
-					) : _notify(notify), _activatedToken(activatedToken), _dismissedToken(dismissedToken), _failedToken(failedToken) {}
-					~NotifyData() { RemoveTokens(); }
-					void markAsReadyForDeletion() { _readyForDeletion = true; }
-					bool isReadyForDeletion() const { return _readyForDeletion; }
-					IToastNotification* notification() { return _notify.Get(); }
-					inline void RemoveTokens()
-					{
-						if (!_readyForDeletion)
-						{
-							return;
-						}
-						if (_previouslyTokenRemoved)
-						{
-							return;
-						}
-						if (!_notify.Get())
-						{
-							return;
-						}
-						_notify->remove_Activated(_activatedToken);
-						_notify->remove_Dismissed(_dismissedToken);
-						_notify->remove_Failed(_failedToken);
-						_previouslyTokenRemoved = true;
-					}
-				private:
-					ComPtr<IToastNotification> _notify = nullptr;
-					EventRegistrationToken _activatedToken{};
-					EventRegistrationToken _dismissedToken{};
-					EventRegistrationToken _failedToken{};
-					bool _readyForDeletion = false;
-					bool _previouslyTokenRemoved = false;
-				};
-
-				bool _isInitialized = false;
-				bool _hasCoInitialized = false;
-				Enums::ShortcutPolicy _shortcutPolicy = Enums::ShortcutPolicy::SHORTCUT_POLICY_REQUIRE_CREATE;
-				std::wstring _appName;
-				std::wstring _aumi;
-				std::map<INT64, NotifyData> _buffer{};
-				inline void markAsReadyForDeletion(_In_ INT64 id)
-				{
-					for (auto it = this->_buffer.begin(); it != this->_buffer.end();)
-					{
-						if (it->second.isReadyForDeletion())
-						{
-							it->second.RemoveTokens();
-							it = this->_buffer.erase(it);
-						}
-						else
-						{
-							it++;
-						}
-					}
-					auto const iter = _buffer.find(id);
-					if (iter != _buffer.end())
-					{
-						this->_buffer[id].markAsReadyForDeletion();
-					}
-				}
-				inline HRESULT validateShellLinkHelper(_Out_ bool& wasChanged)
-				{
-					WCHAR path[MAX_PATH] = { L'\0' };
-					Libray::Util::defaultShellLinkPath(_appName, path);
-					DWORD attr = GetFileAttributesW(path);
-					if (attr >= 0xFFFFFFF)
-					{
-						DEBUG_MESSAGE(L"未找到快捷方式，尝试创建一个!");
-						return E_FAIL;
-					}
-					ComPtr<IShellLinkW> IshellLinkptr;
-					HRESULT hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&IshellLinkptr));
-					do {
-						if (FAILED(hr))
-						{
-							break;
-						}
-						ComPtr<IPersistFile> file;
-						hr = IshellLinkptr.As(&file);
-						if (FAILED(hr))
-						{
-							break;
-						}
-						hr = file->Load(path, STGM_READWRITE);
-						if (FAILED(hr))
-						{
-							break;
-						}
-						else {
-							ComPtr<IPropertyStore> store;
-							hr = IshellLinkptr.As(&store);
-							if (FAILED(hr))
-							{
-								break;
-							}
-							PROPVARIANT appIdPropVar;
-							hr = store->GetValue(PKEY_AppUserModel_ID, &appIdPropVar);
-							if (FAILED(hr))
-							{
-								break;
-							}
-							WCHAR AUMI[MAX_PATH];
-							hr = cloudgameZero::Foundation::dynamincLibrayFunc::function::PropVariantToString(appIdPropVar, AUMI, MAX_PATH);
-							wasChanged = false;
-							if (FAILED(hr) || this->_aumi != AUMI)
-							{
-								if (this->_shortcutPolicy != Enums::ShortcutPolicy::SHORTCUT_POLICY_REQUIRE_CREATE)
-								{
-									return E_FAIL;
-								}
-								wasChanged = true;
-								PropVariantClear(&appIdPropVar);
-								hr = InitPropVariantFromString(_aumi.c_str(), &appIdPropVar);
-								if (FAILED(hr))
-								{
-									return hr;
-								}
-								hr = store->SetValue(PKEY_AppUserModel_ID, appIdPropVar);
-								if (FAILED(hr))
-								{
-									break;
-								}
-								hr = store->Commit();
-								if (SUCCEEDED(hr) && SUCCEEDED(file->IsDirty()))
-								{
-									hr = file->Save(path, TRUE);
-								}
-							}
-						}
-					} while (false);
-					return hr;
-				}
-
-				HRESULT createShellLinkHelper()
-				{
-					if (_shortcutPolicy != Enums::ShortcutPolicy::SHORTCUT_POLICY_REQUIRE_CREATE)
-					{
-						return E_FAIL;
-					}
-					WCHAR exePath[MAX_PATH]{ L'\0' };
-					WCHAR slPath[MAX_PATH]{ L'\0' };
-					Libray::Util::defaultShellLinkPath(_appName, slPath);
-					Libray::Util::defaultExecutablePath(exePath);
-					HRESULT hr = NULL;
-					if (hr = CoInitialize(NULL); FAILED(hr))
-					{
-						return hr;
-					}
-					do {
-						ComPtr<IShellLinkW> IshellLinkptr;
-						hr = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&IshellLinkptr);
-						if (SUCCEEDED(hr))
-						{
-							ComPtr<IPersistFile> file;
-							IshellLinkptr->SetPath(exePath);
-							IshellLinkptr->SetWorkingDirectory(exePath);
-							ComPtr<IPropertyStore> store;
-							hr = IshellLinkptr.As(&store);
-							if (FAILED(hr))
-							{
-								break;
-							}
-							else
-							{
-								PROPVARIANT appIdPropVar;
-								hr = InitPropVariantFromString(this->_aumi.c_str(), &appIdPropVar);
-								if (FAILED(hr))
-								{
-									break;
-								}
-								hr = store->SetValue(PKEY_AppUserModel_ID, appIdPropVar);
-								if (FAILED(hr))
-								{
-									break;
-								}
-								hr = store->Commit();
-								if (FAILED(hr))
-								{
-									break;
-								}
-								PropVariantClear(&appIdPropVar);
-								hr = IshellLinkptr.As(&file);
-								if (SUCCEEDED(hr))
-								{
-									file->Save(slPath, TRUE);
-									file->Release();
-									IshellLinkptr->Release();
-									CoUninitialize();
-									return S_OK;
-								}
-							}
-						}
-					} while (false);
-					CoUninitialize();
-					return hr;
-				}
-
-				HRESULT setImageFieldHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& path, _In_ bool isToastGeneric, bool isCropHintCircle)
-				{
-					using namespace cloudgameZero::Foundation::Warpper;
-					assert(path.size() < MAX_PATH);
-					wchar_t imagePath[MAX_PATH] = L"file:///";
-					HRESULT hr = StringCchCatW(imagePath, MAX_PATH, path.c_str());
-					if (SUCCEEDED(hr))
-					{
-						ComPtr<IXmlNodeList> nodeList;
-						HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"image").Get(), &nodeList);
-						if (SUCCEEDED(hr))
-						{
-							ComPtr<IXmlNode> node;
-							hr = nodeList->Item(0, &node);
-							ComPtr<IXmlElement> imageElement;
-							HRESULT hrImage = node.As(&imageElement);
-							if (SUCCEEDED(hr) && SUCCEEDED(hrImage) && isToastGeneric)
-							{
-								hr = imageElement->SetAttribute(HstringWrapper(L"placement").Get(), HstringWrapper(L"appLogoOverride").Get());
-								if (SUCCEEDED(hr) && isCropHintCircle)
-								{
-									hr = imageElement->SetAttribute(HstringWrapper(L"hint-crop").Get(), HstringWrapper(L"circle").Get());
-								}
-							}
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<IXmlNamedNodeMap> attributes;
-								hr = node->get_Attributes(&attributes);
-								if (SUCCEEDED(hr))
-								{
-									ComPtr<IXmlNode> editedNode;
-									hr = attributes->GetNamedItem(HstringWrapper(L"src").Get(), &editedNode);
-									if (SUCCEEDED(hr))
-									{
-										Libray::Util::setNodeStringValue(imagePath, editedNode.Get(), xml);
-									}
-								}
-							}
-						}
-					}
-					return hr;
-				}
-
-				HRESULT setHeroImageHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& path, _In_ bool isInlineImage)
-				{
-					using namespace cloudgameZero::Foundation::Warpper;
-					ComPtr<IXmlNodeList> nodeList;
-					HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"binding").Get(), &nodeList);
-					if (SUCCEEDED(hr))
-					{
-						UINT32 length;
-						hr = nodeList->get_Length(&length);
-						if (SUCCEEDED(hr))
-						{
-							ComPtr<IXmlNode> bindingNode;
-							if (length > 0)
-							{
-								hr = nodeList->Item(0, &bindingNode);
-							}
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<IXmlElement> imageElement;
-								hr = xml->CreateElement(HstringWrapper(L"image").Get(), &imageElement);
-								if (SUCCEEDED(hr) && isInlineImage == false)
-								{
-									hr = imageElement->SetAttribute(HstringWrapper(L"placement").Get(), HstringWrapper(L"hero").Get());
-								}
-								if (SUCCEEDED(hr))
-								{
-									hr = imageElement->SetAttribute(HstringWrapper(L"src").Get(), HstringWrapper(path).Get());
-								}
-								if (SUCCEEDED(hr))
-								{
-									ComPtr<IXmlNode> actionNode;
-									hr = imageElement.As(&actionNode);
-									if (SUCCEEDED(hr))
-									{
-										ComPtr<IXmlNode> appendedChild;
-										hr = bindingNode->AppendChild(actionNode.Get(), &appendedChild);
-									}
-								}
-							}
-						}
-					}
-					return hr;
-				}
-
-				HRESULT setBindToastGenericHelper(_In_ IXmlDocument* xml)
-				{
-					using namespace cloudgameZero::Foundation::Warpper;
-					ComPtr<IXmlNodeList> nodeList;
-					HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"binding").Get(), &nodeList);
-					if (SUCCEEDED(hr))
-					{
-						UINT32 length;
-						hr = nodeList->get_Length(&length);
-						if (SUCCEEDED(hr))
-						{
-							ComPtr<IXmlNode> toastNode;
-							hr = nodeList->Item(0, &toastNode);
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<IXmlElement> toastElement;
-								hr = toastNode.As(&toastElement);
-								if (SUCCEEDED(hr))
-								{
-									hr = toastElement->SetAttribute(HstringWrapper(L"template").Get(), HstringWrapper(L"ToastGeneric").Get());
-								}
-							}
-						}
-					}
-					return hr;
-				}
-
-				HRESULT setAudioFieldHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& path, _In_opt_ Enums::AudioOption option = Enums::AudioOption::Default)
-				{
-					using namespace cloudgameZero::Foundation::Warpper;
-					std::vector<std::wstring> attrs;
-					if (!path.empty())
-					{
-						attrs.push_back(L"src");
-					}
-					if (option == Enums::AudioOption::Loop)
-					{
-						attrs.push_back(L"loop");
-					}
-					if (option == Enums::AudioOption::Silent)
-					{
-						attrs.push_back(L"silent");
-					}
-					Libray::Util::createElement(xml, L"toast", L"audio", attrs);
-					ComPtr<IXmlNodeList> nodeList;
-					HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"audio").Get(), &nodeList);
-					if (SUCCEEDED(hr))
-					{
-						ComPtr<IXmlNode> node;
-						hr = nodeList->Item(0, &node);
-						if (SUCCEEDED(hr))
-						{
-							ComPtr<IXmlNamedNodeMap> attributes;
-							hr = node->get_Attributes(&attributes);
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<IXmlNode> editedNode;
-								if (!path.empty())
-								{
-									if (SUCCEEDED(hr))
-									{
-										hr = attributes->GetNamedItem(HstringWrapper(L"src").Get(), &editedNode);
-										if (SUCCEEDED(hr))
-										{
-											hr = Libray::Util::setNodeStringValue(path, editedNode.Get(), xml);
-										}
-									}
-								}
-								if (SUCCEEDED(hr))
-								{
-									switch (option)
-									{
-									case Enums::AudioOption::Loop:
-									{
-										hr = attributes->GetNamedItem(HstringWrapper(L"loop").Get(), &editedNode);
-										if (SUCCEEDED(hr))
-										{
-											hr = Libray::Util::setNodeStringValue(L"true", editedNode.Get(), xml);
-										}
-										break;
-									}
-									case Enums::AudioOption::Silent:
-									{
-										hr = attributes->GetNamedItem(HstringWrapper(L"silent").Get(), &editedNode);
-										if (SUCCEEDED(hr))
-										{
-											hr = Libray::Util::setNodeStringValue(L"true", editedNode.Get(), xml);
-										}
-										break;
-									}
-									default:
-									{
-										break;
-									}
-									}
-								}
-							}
-						}
-					}
-					return hr;
-				}
-
-				HRESULT setTextFieldHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& text, _In_ std::size_t pos)
-				{
-					ComPtr<IXmlNodeList> nodeList;
-					HRESULT hr = xml->GetElementsByTagName(Foundation::Warpper::HstringWrapper(L"text").Get(), &nodeList);
-					if (SUCCEEDED(hr))
-					{
-						ComPtr<IXmlNode> node;
-						hr = nodeList->Item(pos, &node);
-						if (SUCCEEDED(hr))
-						{
-							hr = Libray::Util::setNodeStringValue(text, node.Get(), xml);
-						}
-					}
-					return hr;
-				}
-
-				HRESULT setAttributionTextFieldHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& text)
-				{
-					using namespace cloudgameZero::Foundation::Warpper;
-					Libray::Util::createElement(xml, L"binding", L"text", { L"placement" });
-					ComPtr<IXmlNodeList> nodeList;
-					HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"text").Get(), &nodeList);
-					if (SUCCEEDED(hr))
-					{
-						UINT32 nodeListLength;
-						hr = nodeList->get_Length(&nodeListLength);
-						if (SUCCEEDED(hr)) {
-							for (UINT32 i = 0; i < nodeListLength; i++)
-							{
-								ComPtr<IXmlNode> textNode;
-								hr = nodeList->Item(i, &textNode);
-								if (SUCCEEDED(hr))
-								{
-									ComPtr<IXmlNamedNodeMap> attributes;
-									hr = textNode->get_Attributes(&attributes);
-									if (SUCCEEDED(hr))
-									{
-										ComPtr<IXmlNode> editedNode;
-										if (SUCCEEDED(hr))
-										{
-											hr = attributes->GetNamedItem(HstringWrapper(L"placement").Get(), &editedNode);
-											if (FAILED(hr) || !editedNode)
-											{
-												continue;
-											}
-											hr = Libray::Util::setNodeStringValue(L"attribution", editedNode.Get(), xml);
-											if (SUCCEEDED(hr))
-											{
-												return setTextFieldHelper(xml, text, i);
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-					return hr;
-				}
-
-				inline HRESULT addActionHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& action, _In_ std::wstring const& arguments)
-				{
-					using namespace cloudgameZero::Foundation::Warpper;
-					ComPtr<IXmlNodeList> nodeList;
-					HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"actions").Get(), &nodeList);
-					if (SUCCEEDED(hr))
-					{
-						UINT32 length;
-						hr = nodeList->get_Length(&length);
-						if (SUCCEEDED(hr))
-						{
-							ComPtr<IXmlNode> actionsNode;
-							if (length > 0)
-							{
-								hr = nodeList->Item(0, &actionsNode);
-							}
-							else
-							{
-								hr = xml->GetElementsByTagName(HstringWrapper(L"toast").Get(), &nodeList);
-								if (SUCCEEDED(hr)) {
-									hr = nodeList->get_Length(&length);
-									if (SUCCEEDED(hr))
-									{
-										ComPtr<IXmlNode> toastNode;
-										hr = nodeList->Item(0, &toastNode);
-										if (SUCCEEDED(hr))
-										{
-											ComPtr<IXmlElement> toastElement;
-											hr = toastNode.As(&toastElement);
-											if (SUCCEEDED(hr))
-											{
-												hr = toastElement->SetAttribute(HstringWrapper(L"template").Get(), HstringWrapper(L"ToastGeneric").Get());
-											}
-											if (SUCCEEDED(hr))
-											{
-												hr = toastElement->SetAttribute(HstringWrapper(L"duration").Get(), HstringWrapper(L"long").Get());
-											}
-											if (SUCCEEDED(hr))
-											{
-												ComPtr<IXmlElement> actionsElement;
-												hr = xml->CreateElement(HstringWrapper(L"actions").Get(), &actionsElement);
-												if (SUCCEEDED(hr))
-												{
-													hr = actionsElement.As(&actionsNode);
-													if (SUCCEEDED(hr))
-													{
-														ComPtr<IXmlNode> appendedChild;
-														hr = toastNode->AppendChild(actionsNode.Get(), &appendedChild);
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<IXmlElement> actionElement;
-								hr = xml->CreateElement(HstringWrapper(L"action").Get(), &actionElement);
-								if (SUCCEEDED(hr))
-								{
-									hr = actionElement->SetAttribute(HstringWrapper(L"content").Get(), HstringWrapper(action).Get());
-								}
-								if (SUCCEEDED(hr))
-								{
-									hr = actionElement->SetAttribute(HstringWrapper(L"arguments").Get(), HstringWrapper(arguments).Get());
-								}
-								if (SUCCEEDED(hr))
-								{
-									ComPtr<IXmlNode> actionNode;
-									hr = actionElement.As(&actionNode);
-									if (SUCCEEDED(hr))
-									{
-										ComPtr<IXmlNode> appendedChild;
-										hr = actionsNode->AppendChild(actionNode.Get(), &appendedChild);
-									}
-								}
-							}
-						}
-					}
-					return hr;
-				}
-
-				HRESULT addDurationHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& duration)
-				{
-					using namespace cloudgameZero::Foundation::Warpper;
-					ComPtr<IXmlNodeList> nodeList;
-					HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"toast").Get(), &nodeList);
-					if (SUCCEEDED(hr))
-					{
-						UINT32 length;
-						hr = nodeList->get_Length(&length);
-						if (SUCCEEDED(hr))
-						{
-							ComPtr<IXmlNode> toastNode;
-							hr = nodeList->Item(0, &toastNode);
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<IXmlElement> toastElement;
-								hr = toastNode.As(&toastElement);
-								if (SUCCEEDED(hr))
-								{
-									hr = toastElement->SetAttribute(HstringWrapper(L"duration").Get(), HstringWrapper(duration).Get());
-								}
-							}
-						}
-					}
-					return hr;
-				}
-
-				HRESULT addScenarioHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& scenario)
-				{
-					using namespace cloudgameZero::Foundation::Warpper;
-					ComPtr<IXmlNodeList> nodeList;
-					HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"toast").Get(), &nodeList);
-					if (SUCCEEDED(hr))
-					{
-						UINT32 length;
-						hr = nodeList->get_Length(&length);
-						if (SUCCEEDED(hr))
-						{
-							ComPtr<IXmlNode> toastNode;
-							hr = nodeList->Item(0, &toastNode);
-							if (SUCCEEDED(hr))
-							{
-								ComPtr<IXmlElement> toastElement;
-								hr = toastNode.As(&toastElement);
-								if (SUCCEEDED(hr))
-								{
-									hr = toastElement->SetAttribute(HstringWrapper(L"scenario").Get(), HstringWrapper(scenario).Get());
-								}
-							}
-						}
-					}
-					return hr;
-				}
-
-				ComPtr<IToastNotifier> notifier(_In_ bool* succeded) const
-				{
-					using namespace cloudgameZero::Foundation::dynamincLibrayFunc::function;
-					using namespace cloudgameZero::Foundation::Warpper;
-					ComPtr<IToastNotificationManagerStatics> notificationManager;
-					ComPtr<IToastNotifier> notifier;
-					HRESULT hr = Wrap_GetActivationFactory(HstringWrapper(RuntimeClass_Windows_UI_Notifications_ToastNotificationManager).Get(), &notificationManager);
-					if (SUCCEEDED(hr))
-					{
-						hr = notificationManager->CreateToastNotifierWithId(HstringWrapper(_aumi).Get(), &notifier);
-					}
-					*succeded = SUCCEEDED(hr);
-					return notifier;
-				}
-
-				inline void setError(_Out_opt_ Enums::ToastError* error, _In_ Enums::ToastError value)
-				{
-					if (error) {
-						*error = value;
-					}
-				}
-
-			};
+			using notification = Interface::WinNotification;
 
 			class PreDefineHandler : public API::ToastPlatformHandler
 			{
@@ -8377,6 +7610,28 @@ namespace cloudgameZero
 					//在此插入需要执行的指令
 				}
 			};
+
+			static std::wstring configureAUMI(_In_ std::wstring const& companyName, _In_ std::wstring const& productName, _In_opt_ std::wstring const& subProduct = std::wstring(), _In_opt_ std::wstring const& versionInformation = std::wstring())
+			{
+				std::wstring aumi = companyName;
+				aumi += L"." + productName;
+				if (subProduct.length() > 0)
+				{
+					aumi += L"." + subProduct;
+					if (versionInformation.length() > 0)
+						aumi += L"." + versionInformation;
+				}
+				if (aumi.length() > SCHAR_MAX)
+					DEBUG_MESSAGE(L"错误：用户模型ID总长度不应该超过127");
+				return aumi;
+			}
+
+			static std::wstring const& getToastErrorMessage(_In_ Enums::ToastError error)
+			{
+				auto const iter = Libray::ToastErrors.find(error);
+				assert(iter != Libray::ToastErrors.end());
+				return iter->second;
+			}
 		}
 	}
 

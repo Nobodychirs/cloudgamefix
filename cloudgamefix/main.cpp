@@ -80,6 +80,7 @@ int showMenu()
 	return 0;
 }
 
+extern void test();
 
 LRESULT __stdcall WindowProcedure(HWND window, unsigned int msg, WPARAM wp, LPARAM lp)
 {
@@ -108,13 +109,6 @@ int main(int argc, CHAR** argv)
 			exit(0);
 		}
 	);*/
-	cgFix* cgfix = nullptr;
-	HRESULT hr = createInstance(&cgfix);
-	if (SUCCEEDED(hr))
-	{
-		std::cout << "成功创建实例!" << "\n";
-	}
-	testNoti();
 	PRESSANYBOTTON();
 	if (INSTANCE_EVENT)
 	{

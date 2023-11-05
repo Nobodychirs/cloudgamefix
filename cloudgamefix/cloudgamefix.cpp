@@ -16,41 +16,13 @@ using namespace cloudgameZero::ToastPlatform::Enums;
 #pragma warning(push)
 #pragma warning(disable : CLOUDGAME_FIX_ZERO_DISABLE_WARNING)
 
-static inline void setError(_Out_opt_ Enums::ToastError* error, _In_ Enums::ToastError value)
-{
-	if (error) {
-		*error = value;
-	}
-}
-
-static std::wstring configureAUMI(_In_ std::wstring const& companyName, _In_ std::wstring const& productName, _In_ std::wstring const& subProduct = std::wstring(), _In_ std::wstring const& versionInformation = std::wstring())
-{
-	std::wstring aumi = companyName;
-	aumi += L"." + productName;
-	if (subProduct.length() > 0)
-	{
-		aumi += L"." + subProduct;
-		if (versionInformation.length() > 0)
-		{
-			aumi += L"." + versionInformation;
-		}
-	}
-	if (aumi.length() > SCHAR_MAX)
-	{
-		DEBUG_MESSAGE(L"错误：用户模型ID总长度不应该超过127");
-	}
-	return aumi;
-}
-
-static std::wstring const& getToastErrorMessage(_In_ Enums::ToastError error)
-{
-	auto const iter = Libray::ToastErrors.find(error);
-	assert(iter != Libray::ToastErrors.end());
-	return iter->second;
-}
-
 namespace cloudgameZero
 {
+	namespace Infomation
+	{
+		
+	}
+
 	namespace Interface
 	{
 		namespace sigmaInterface
@@ -109,6 +81,417 @@ namespace cloudgameZero
 				{
 
 				};
+
+				class __WinNotification : public WinNotification
+				{
+				public:
+					explicit __WinNotification() : _isInitialized(false), _hasCoInitialized(false) {}
+					virtual ~__WinNotification();
+					virtual HRESULT QueryInterface(const IID& iid, void** ppv) override;
+					virtual ULONG AddRef() override;
+					virtual ULONG Release() override;
+					virtual bool Init(_Out_opt_ Enums::ToastError* error = nullptr) override;
+					virtual bool hide(_In_ INT64 id) override;
+					virtual INT64 show(_In_ ToastTemplate const& toast, _In_ ToastPlatformHandler* eventHandler, Enums::ToastError* error = nullptr) override;
+					virtual void clear() override;
+					virtual Enums::ShortcutResult createShortcut();
+					virtual bool isInit() const	override										 { return this->_isInitialized; }
+					virtual std::wstring const& getAppName() const override						 { return this->_appName; };
+					virtual std::wstring const& getAppUserModelId() const override				 { return this->_aumi; };
+					virtual void setAppUserModelId(_In_ std::wstring const& aumi) override		 { this->_aumi = aumi; }
+					virtual void setAppName(_In_ std::wstring const& AppName) override			 { this->_appName = AppName; }
+					virtual void setShortcutPolicy(_In_ Enums::ShortcutPolicy policy) override	 { this->_shortcutPolicy = policy; }
+				private:
+					ULONG ref;
+				protected:
+					interface NotifyData
+					{
+						explicit NotifyData() = default;
+						explicit NotifyData(
+							_In_ ComPtr<IToastNotification> notify,
+							_In_ EventRegistrationToken activatedToken,
+							_In_ EventRegistrationToken dismissedToken,
+							_In_ EventRegistrationToken failedToken
+						) : _notify(notify), _activatedToken(activatedToken), _dismissedToken(dismissedToken), _failedToken(failedToken) {}
+						~NotifyData() { RemoveTokens(); }
+						void markAsReadyForDeletion() { _readyForDeletion = true; }
+						bool isReadyForDeletion() const { return _readyForDeletion; }
+						IToastNotification* notification() { return _notify.Get(); }
+						inline void RemoveTokens()
+						{
+							if (!_readyForDeletion)
+								return;
+							if (_previouslyTokenRemoved)
+								return;
+							if (!_notify.Get())
+								return;
+							_notify->remove_Activated(_activatedToken);
+							_notify->remove_Dismissed(_dismissedToken);
+							_notify->remove_Failed(_failedToken);
+							_previouslyTokenRemoved = true;
+						}
+					private:
+						ComPtr<IToastNotification> _notify = nullptr;
+						EventRegistrationToken _activatedToken{};
+						EventRegistrationToken _dismissedToken{};
+						EventRegistrationToken _failedToken{};
+						bool _readyForDeletion = false;
+						bool _previouslyTokenRemoved = false;
+					};
+					bool _isInitialized = false;
+					bool _hasCoInitialized = false;
+					Enums::ShortcutPolicy _shortcutPolicy = Enums::ShortcutPolicy::SHORTCUT_POLICY_REQUIRE_CREATE;
+					std::wstring _appName;
+					std::wstring _aumi;
+					std::map<INT64, NotifyData> _buffer{};
+					inline void markAsReadyForDeletion(_In_ INT64 id);
+					inline HRESULT validateShellLinkHelper(_Out_ bool& wasChanged);
+					HRESULT createShellLinkHelper();
+					ComPtr<IToastNotifier> notifier(_In_ bool* succeded) const;
+					inline void setError(_Out_opt_ Enums::ToastError* error, _In_ Enums::ToastError value)
+					{
+						if (error) {
+							*error = value;
+						}
+					}
+				};
+
+				extern std::unordered_map<std::string, delegate<void*>> registry = {
+					{"{5DD98957-02FC-4583-A25C-14A69321F2F0}",[]() {return new __cgFix; }},
+					{"{A3872F59-C8AF-467E-8BF5-DF19FB77149E}",[]() {return new __cgSystem; }},
+					{"{15DD4DD4-3E31-4F13-8E40-D88609D80B06}",[]() {return new __WinNotification; }}
+				};
+
+				namespace helper
+				{
+					class ToastComponentHelper
+					{
+					public:
+						ToastComponentHelper() = default;
+
+						~ToastComponentHelper() = default;
+
+						HRESULT setImageField(_In_ std::wstring const& path, _In_ bool isToastGeneric, _In_ bool isCropHintCircle)
+						{
+							using namespace cloudgameZero::Foundation::Warpper;
+							assert(path.size() < MAX_PATH);
+							wchar_t imagePath[MAX_PATH] = L"file:///";
+							HRESULT hr = StringCchCatW(imagePath, MAX_PATH, path.c_str());
+							do {
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNodeList> nodeList;
+								hr = xml->GetElementsByTagName(HstringWrapper(L"image").Get(), &nodeList);
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNode> node;
+								hr = nodeList->Item(0, &node);
+								ComPtr<IXmlElement> imageElement;
+								HRESULT hrImage = node.As(&imageElement);
+								if (SUCCEEDED(hr) && SUCCEEDED(hrImage) && isToastGeneric)
+								{
+									hr = imageElement->SetAttribute(HstringWrapper(L"placement").Get(), HstringWrapper(L"appLogoOverride").Get());
+									if (SUCCEEDED(hr) && isCropHintCircle)
+										hr = imageElement->SetAttribute(HstringWrapper(L"hint-crop").Get(), HstringWrapper(L"circle").Get());
+								}
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNamedNodeMap> attributes;
+								hr = node->get_Attributes(&attributes);
+								if (SUCCEEDED(hr))
+								{
+									ComPtr<IXmlNode> editedNode;
+									hr = attributes->GetNamedItem(HstringWrapper(L"src"), &editedNode);
+									if (SUCCEEDED(hr))
+										Libray::Util::setNodeStringValue(imagePath, editedNode.Get(), xml.Get());
+								}
+							} while (false);
+							return hr;
+						}
+
+						HRESULT addScenario(_In_ std::wstring const& scenario)
+						{
+							using namespace cloudgameZero::Foundation::Warpper;
+							ComPtr<IXmlNodeList> nodeList;
+							HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"toast"), &nodeList);
+							if (FAILED(hr))
+								return hr;
+							UINT32 length;
+							hr = nodeList->get_Length(&length);
+							if (FAILED(hr))
+								return hr;
+							ComPtr<IXmlNode> toastNode;
+							hr = nodeList->Item(0, &toastNode);
+							if (FAILED(hr))
+								return hr;
+							ComPtr<IXmlElement> toastElement;
+							hr = toastNode.As(&toastElement);
+							if (SUCCEEDED(hr))
+								hr = toastElement->SetAttribute(HstringWrapper(L"scenario"), HstringWrapper(scenario));
+							return hr;
+						}
+
+						HRESULT addDuration(_In_ std::wstring const& duration)
+						{
+							using namespace cloudgameZero::Foundation::Warpper;
+							ComPtr<IXmlNodeList> nodeList;
+							HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"toast").Get(), &nodeList);
+							if (FAILED(hr))
+								return hr;
+							UINT32 length;
+							hr = nodeList->get_Length(&length);
+							if (FAILED(hr))
+								return hr;
+							ComPtr<IXmlNode> toastNode;
+							hr = nodeList->Item(0, &toastNode);
+							if (FAILED(hr))
+								return hr;
+							ComPtr<IXmlElement> toastElement;
+							hr = toastNode.As(&toastElement);
+							if (SUCCEEDED(hr))
+								hr = toastElement->SetAttribute(HstringWrapper(L"duration").Get(), HstringWrapper(duration).Get());
+							return hr;
+						}
+
+						HRESULT addAction(_In_ std::wstring const& action, _In_ std::wstring const& arguments)
+						{
+							using namespace cloudgameZero::Foundation::Warpper;
+							ComPtr<IXmlNodeList> nodeList;
+							HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"actions").Get(), &nodeList);
+							do {
+								if (FAILED(hr))
+									break;
+								UINT32 length;
+								hr = nodeList->get_Length(&length);
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNode> actionsNode;
+								if (length > 0)
+									hr = nodeList->Item(0, &actionsNode);
+								else
+								{
+									do {
+										hr = xml->GetElementsByTagName(HstringWrapper(L"toast").Get(), &nodeList);
+										if (FAILED(hr))
+											break;
+										hr = nodeList->get_Length(&length);
+										if (FAILED(hr))
+											break;
+										ComPtr<IXmlNode> toastNode;
+										hr = nodeList->Item(0, &toastNode);
+										if (FAILED(hr))
+											break;
+										ComPtr<IXmlElement> toastElement;
+										hr = toastNode.As(&toastElement);
+										if (SUCCEEDED(hr))
+											hr = toastElement->SetAttribute(HstringWrapper(L"template").Get(), HstringWrapper(L"ToastGeneric").Get());
+										if (SUCCEEDED(hr))
+											hr = toastElement->SetAttribute(HstringWrapper(L"duration").Get(), HstringWrapper(L"long").Get());
+										if (FAILED(hr))
+											break;
+										ComPtr<IXmlElement> actionsElement;
+										hr = xml->CreateElement(HstringWrapper(L"actions").Get(), &actionsElement);
+										if (FAILED(hr))
+											break;
+										hr = actionsElement.As(&actionsNode);
+										if (FAILED(hr))
+											break;
+										ComPtr<IXmlNode> appendedChild;
+										hr = toastNode->AppendChild(actionsNode.Get(), &appendedChild);
+									} while (false);
+								}
+								if (SUCCEEDED(hr))
+								{
+									ComPtr<IXmlElement> actionElement;
+									hr = xml->CreateElement(HstringWrapper(L"action").Get(), &actionElement);
+									if (SUCCEEDED(hr))
+										hr = actionElement->SetAttribute(HstringWrapper(L"content").Get(), HstringWrapper(action).Get());
+									if (SUCCEEDED(hr))
+										hr = actionElement->SetAttribute(HstringWrapper(L"arguments").Get(), HstringWrapper(arguments).Get());
+									if (FAILED(hr))
+										break;
+									ComPtr<IXmlNode> actionNode;
+									hr = actionElement.As(&actionNode);
+									if (SUCCEEDED(hr))
+									{
+										ComPtr<IXmlNode> appendedChild;
+										hr = actionsNode->AppendChild(actionNode.Get(), &appendedChild);
+									}
+								}
+							} while (false);
+							return hr;
+						}
+
+						HRESULT setAttributionTextField(_In_ std::wstring const& text)
+						{
+							using namespace cloudgameZero::Foundation::Warpper;
+							Libray::Util::createElement(xml.Get(), L"binding", L"text", {L"placement"});
+							ComPtr<IXmlNodeList> nodeList;
+							HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"text").Get(), &nodeList);
+							do {
+								if (FAILED(hr))
+									return hr;
+								UINT32 nodeListLength;
+								hr = nodeList->get_Length(&nodeListLength);
+								if (FAILED(hr))
+									break;
+								for (UINT32 i = 0; i < nodeListLength; i++)
+								{
+									ComPtr<IXmlNode> textNode;
+									hr = nodeList->Item(i, &textNode);
+									if (FAILED(hr))
+										continue;
+									ComPtr<IXmlNamedNodeMap> attributes;
+									hr = textNode->get_Attributes(&attributes);
+									if (FAILED(hr))
+										continue;
+									ComPtr<IXmlNode> editedNode;
+									if (FAILED(hr))
+										continue;
+									hr = attributes->GetNamedItem(HstringWrapper(L"placement").Get(), &editedNode);
+									if (FAILED(hr) || !editedNode)
+										continue;
+									hr = Libray::Util::setNodeStringValue(L"attribution", editedNode.Get(), xml.Get());
+									if (SUCCEEDED(hr))
+										return setTextField(text, i);
+								}
+							} while (false);
+							return hr;
+						}
+
+						HRESULT setTextField(_In_ std::wstring const& text, _In_ std::size_t pos)
+						{
+							ComPtr<IXmlNodeList> nodeList;
+							HRESULT hr = xml->GetElementsByTagName(Foundation::Warpper::HstringWrapper(L"text").Get(), &nodeList);
+							if (FAILED(hr))
+								return hr;
+							ComPtr<IXmlNode> node;
+							hr = nodeList->Item(pos, &node);
+							if (SUCCEEDED(hr))
+								hr = Libray::Util::setNodeStringValue(text, node.Get(), xml.Get());
+							return hr;
+						}
+
+						HRESULT setBindToastGeneric()
+						{
+							using namespace cloudgameZero::Foundation::Warpper;
+							ComPtr<IXmlNodeList> nodeList;
+							HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"binding").Get(), &nodeList);
+							do {
+								if (FAILED(hr))
+									break;
+								UINT32 length;
+								hr = nodeList->get_Length(&length);
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNode> toastNode;
+								hr = nodeList->Item(0, &toastNode);
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlElement> toastElement;
+								hr = toastNode.As(&toastElement);
+								if (SUCCEEDED(hr))
+									hr = toastElement->SetAttribute(HstringWrapper(L"template").Get(), HstringWrapper(L"ToastGeneric").Get());
+							} while (false);
+							return hr;
+						}
+
+						HRESULT setAudioField(_In_ std::wstring const& path, _In_opt_ Enums::AudioOption option = Enums::AudioOption::Default)
+						{
+							using namespace cloudgameZero::Foundation::Warpper;
+							std::vector<std::wstring> attrs;
+							if (!path.empty())
+								attrs.push_back(L"src");
+							if (option == Enums::AudioOption::Loop)
+								attrs.push_back(L"loop");
+							if (option == Enums::AudioOption::Silent)
+								attrs.push_back(L"silent");
+							Libray::Util::createElement(xml.Get(), L"toast", L"audio", attrs);
+							ComPtr<IXmlNodeList> nodeList;
+							HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"audio").Get(), &nodeList);
+							do {
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNode> node;
+								hr = nodeList->Item(0, &node);
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNamedNodeMap> attributes;
+								hr = node->get_Attributes(&attributes);
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNode> editedNode;
+								if (!path.empty())
+								{
+									if (SUCCEEDED(hr))
+									{
+										hr = attributes->GetNamedItem(HstringWrapper(L"src").Get(), &editedNode);
+										if (SUCCEEDED(hr))
+											hr = Libray::Util::setNodeStringValue(path, editedNode.Get(), xml.Get());
+									}
+								}
+								if (FAILED(hr))
+									break;
+								switch (option)
+								{
+								case Enums::AudioOption::Loop:
+									hr = attributes->GetNamedItem(HstringWrapper(L"loop").Get(), &editedNode);
+									if (SUCCEEDED(hr))
+										hr = Libray::Util::setNodeStringValue(L"true", editedNode.Get(), xml.Get());
+									break;
+								case Enums::AudioOption::Silent:
+									hr = attributes->GetNamedItem(HstringWrapper(L"silent").Get(), &editedNode);
+									if (SUCCEEDED(hr))
+										hr = Libray::Util::setNodeStringValue(L"true", editedNode.Get(), xml.Get());
+									break;
+								default:
+									break;
+								}
+							} while (false);
+							return hr;
+						}
+
+						HRESULT setHeroImage(_In_ std::wstring const& path, _In_ bool isInlineImage)
+						{
+							using namespace cloudgameZero::Foundation::Warpper;
+							ComPtr<IXmlNodeList> nodeList;
+							HRESULT hr = xml->GetElementsByTagName(HstringWrapper(L"binding").Get(), &nodeList);
+							do {
+								if (FAILED(hr))
+									break;
+								UINT32 length;
+								hr = nodeList->get_Length(&length);
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNode> bindingNode;
+								if (length > 0)
+									hr = nodeList->Item(0, &bindingNode);
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlElement> imageElement;
+								hr = xml->CreateElement(HstringWrapper(L"image").Get(), &imageElement);
+								if (SUCCEEDED(hr) && isInlineImage == false)
+									hr = imageElement->SetAttribute(HstringWrapper(L"placement").Get(), HstringWrapper(L"hero").Get());
+								if (SUCCEEDED(hr))
+									hr = imageElement->SetAttribute(HstringWrapper(L"src").Get(), HstringWrapper(path).Get());
+								if (FAILED(hr))
+									break;
+								ComPtr<IXmlNode> actionNode;
+								hr = imageElement.As(&actionNode);
+								if (SUCCEEDED(hr))
+								{
+									ComPtr<IXmlNode> appendedChild;
+									hr = bindingNode->AppendChild(actionNode.Get(), &appendedChild);
+								}
+							} while (false);
+							return hr;
+						}
+
+						ComPtr<IXmlDocument> xml = nullptr;
+					};
+
+
+				}
 			}
 
 			inline namespace guid
@@ -118,25 +501,21 @@ namespace cloudgameZero
 				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolA = __uuidof(cgToolA);
 				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolW = __uuidof(cgToolW);
 				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolA_s = __uuidof(__cgToolA_s);
+				extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IWinNotification = __uuidof(WinNotification);
+
 
 				//This function is normally called by the createInstance function, which takes a uuid and compares it to the corresponding IUnknown pointer
 				extern IUnknown* Query(_In_ const IID& iid)
 				{
-					if (iid == IID_CLOUDGAME_FIX_ZERO_IID_IcgFix)
-					{
-						return new __cgFix;
-					}
-					else if (iid == IID_CLOUDGAME_FIX_ZERO_IID_IcgSystem)
-					{
-						cgSystem* ptr = new __cgSystem;
-						return ptr;
-					}
-					else 
-					{
+					LPOLESTR guid{};
+					HRESULT hr = StringFromIID(iid, &guid);
+					auto itr = registry.find(WideToMuti(guid));
+					if (itr == registry.end()) {
 						return nullptr;
 					}
+					return static_cast<IUnknown*>(itr->second());
 				}
-			}		
+			}
 		}
 	}
 }
@@ -166,6 +545,18 @@ static std::map<Interface::cgSystem::Theme,std::string> ThemeIndex = {
 		{ Interface::cgSystem::Theme::flower,		"theme2.theme" }
 };
 
+bool cloudgameZero::Infomation::isSupportingModernFeatures()
+{
+	constexpr auto MinimumSupportedVersion = 6;
+	return Libray::Util::getRealOSVersion().dwMajorVersion > MinimumSupportedVersion;
+}
+
+bool cloudgameZero::Infomation::isWin10AnniversaryOrHigher()
+{
+	return Libray::Util::getRealOSVersion().dwBuildNumber >= 14393;
+}
+
+#pragma region CGFIX
 HRESULT  __cgFix::QueryInterface(const IID& iid, void** ppv)
 {
 	if (iid == __uuidof(cgFix))
@@ -406,20 +797,20 @@ void  __cgFix::fixFileExt(_In_ __cgFix::mode mode)
 
 void  __cgFix::resetGroupPolicy()
 {
-	API::ToastTemplate toast(Enums::ToastTemplateType::Text02);
+	/*API::ToastTemplate toast(Enums::ToastTemplateType::Text02);
 	API::ToastNotification::instance()->setAppUserModelId(cloudgameZero::Infomation::AUMI);
 	API::ToastNotification::instance()->setAppName(cloudgameZero::Infomation::APPNAME);
-	API::ToastNotification::instance()->Init();
-	toast.setSecondLine(L"出现此消息意味着程序完成了指令，并且函数已经完成");
-	toast.setFirstLine(L"完成组策略重置指令");
+	API::ToastNotification::instance()->Init();*/
+	/*toast.setSecondLine(L"出现此消息意味着程序完成了指令，并且函数已经完成");
+	toast.setFirstLine(L"完成组策略重置指令");*/
 	CL()->debug("准备删除组策略的文件");
 	std::filesystem::remove_all("C:\\Windows\\System32\\GroupPolicy");
 	std::filesystem::remove_all("C:\\Windows\\System32\\GroupPolicyUsers");
 	CL()->info("开始执行重置指令");
 	ShellExecuteA(NULL, "open", "cmd.exe", " /c gpupdate /force", NULL, SW_HIDE);
 	CL()->info("成功完成调用");
-	API::ToastNotification::instance()->show(toast, new API::PreDefineHandler);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	//API::ToastNotification::instance()->show(toast, new API::PreDefineHandler);
+	//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	return;
 }
 
@@ -656,21 +1047,20 @@ void cloudgameZero::Interface::sigmaInterface::Implement::__cgFix::fixUpdateServ
 	ShellExecuteA(NULL, "open", "net", "start TrustedInstaller", NULL, SW_HIDE);
 	return;
 }
-
+#pragma endregion
 
 /*
 cgFix接口结束
 cgSystem接口开始
 */
 
+#pragma region CGSYSTEM
 HRESULT __cgSystem::QueryInterface(const IID& iid, void** ppv)
 {
-	if (iid == __uuidof(cgFix))
-	{
+	if (iid == IID_CLOUDGAME_FIX_ZERO_IID_IcgFix){
 		*ppv = dynamic_cast<cgFix*>(new __cgFix);
 	}
-	else if (iid == __uuidof(cgSystem))
-	{
+	else if (iid == IID_CLOUDGAME_FIX_ZERO_IID_IcgSystem){
 		*ppv = dynamic_cast<cgSystem*>(new __cgSystem);
 	}
 	else
@@ -690,12 +1080,10 @@ ULONG cloudgameZero::Interface::sigmaInterface::Implement::__cgSystem::AddRef()
 
 ULONG cloudgameZero::Interface::sigmaInterface::Implement::__cgSystem::Release()
 {
-	if (this->ref--; this->ref == 0)
-	{
+	if (this->ref--; this->ref == 0){
 		delete this;
 	}
-	else
-	{
+	else{
 		return this->ref;
 	}
 	return NULL;
@@ -773,23 +1161,404 @@ void sigmaInterface::Implement::__cgSystem::fixUpdateService()
 {
 	return __cgFix::fixUpdateService();
 }
-
-/* 通知实体类方法实现 */
+#pragma endregion
 
 extern void testNoti()
 {
-	
+	API::notification* noti = new __WinNotification;
+	API::ToastTemplate toast(Enums::ToastTemplateType::Text02);
+	noti->setAppUserModelId(cloudgameZero::Infomation::AUMI);
+	noti->setAppName(cloudgameZero::Infomation::APPNAME);
+	noti->Init();
+	noti->show(toast, new PreDefineHandler);
 }
 
-bool cloudgameZero::Infomation::isSupportingModernFeatures()
+/* 通知实体类方法实现 */
+
+#pragma region WINNOTIFICATION
+
+HRESULT cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::QueryInterface(const IID& iid, void** ppv)
 {
-	constexpr auto MinimumSupportedVersion = 6;
-	return Libray::Util::getRealOSVersion().dwMajorVersion > MinimumSupportedVersion;
+	if (iid == IID_CLOUDGAME_FIX_ZERO_IID_IWinNotification){
+		*ppv = dynamic_cast<WinNotification*>(new __WinNotification);
+	}
+	else {
+		return E_NOINTERFACE;
+	}
+	reinterpret_cast<IUnknown*>(*ppv)->AddRef();
+	return S_OK;
 }
 
-bool cloudgameZero::Infomation::isWin10AnniversaryOrHigher()
+ULONG cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::AddRef()
 {
-	return Libray::Util::getRealOSVersion().dwBuildNumber >= 14393;
+	this->ref++;
+	return this->ref;
+}
+
+ULONG cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::Release()
+{
+	if (this->ref--; this->ref == 0) {
+		delete this;
+	}
+	else {
+		return this->ref;
+	}
+	return NULL;
+}
+
+cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::~__WinNotification()
+{
+	try {
+		this->clear();
+		if (_hasCoInitialized) {
+			CoUninitialize();
+		}
+	}
+	catch (...)
+	{
+		PrintError("ToastNotification析构出现错误");
+		return;
+	}
+}
+
+bool cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::Init(_Out_opt_ Enums::ToastError* error)
+{
+	_isInitialized = false;
+	setError(error, Enums::ToastError::NoError);
+	if (_aumi.empty() || _appName.empty())
+	{
+		setError(error, Enums::ToastError::InvalidParameters);
+		Libray::Util::ToastPlatformLog()->warn("警告：你需要给aumi或者appname设置一个名称，而不是直接初始化");
+		return false;
+	}
+	if (_shortcutPolicy != Enums::ShortcutPolicy::SHORTCUT_POLICY_IGNORE)
+	{
+		if ((INT)createShortcut() < 0) {
+			setError(error, Enums::ToastError::ShellLinkNotCreated);
+			Libray::Util::ToastPlatformLog()->warn("如果要触发Toast通知：您必须提供了一个Aumi和一个在开始菜单的快捷方式(不应该忽略创建)");
+			return false;
+		}
+	}
+	if (FAILED(SetCurrentProcessExplicitAppUserModelID(_aumi.c_str())))
+	{
+		setError(error, Enums::ToastError::InvalidAppUserModelID);
+		Libray::Util::ToastPlatformLog()->error("无法设置aumi，某些设置可能出现了错误");
+		return false;
+	}
+	this->_isInitialized = true;
+	return this->_isInitialized;
+}
+
+bool cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::hide(_In_ INT64 id)
+{
+	if (!isInit())
+	{
+		Libray::Util::ToastPlatformLog()->error("发生错误在隐藏吐司的时候，你需要初始化实例才能使用");
+		return false;
+	}
+	auto iter = _buffer.find(id);
+	if (iter == _buffer.end())
+		return false;
+	auto succeded = false;
+	auto notify = notifier(&succeded);
+	if (!succeded)
+		return false;
+	auto& notifyData = iter->second;
+	auto result = notify->Hide(notifyData.notification());
+	if (FAILED(result))
+	{
+		Libray::Util::ToastPlatformLog()->info("隐藏吐司失败！. 代码: {}", result);
+		return false;
+	}
+	notifyData.RemoveTokens();
+	_buffer.erase(iter);
+	return SUCCEEDED(result);
+}
+
+INT64 cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::show(_In_ ToastTemplate const& toast, _In_ ToastPlatformHandler* eventHandler, Enums::ToastError* error)
+{
+	using namespace cloudgameZero::Interface::sigmaInterface::Implement::helper;
+	using namespace cloudgameZero::Foundation::Warpper;
+	using namespace cloudgameZero::Foundation::dynamincLibrayFunc::function;
+	std::shared_ptr<ToastPlatformHandler> handler(eventHandler);
+	this->setError(error, Enums::ToastError::NoError);
+	INT64 id = -1;
+	if (!isInit())
+	{
+		this->setError(error, Enums::ToastError::NotInitialized);
+		Libray::Util::ToastPlatformLog()->warn("在启动通知的时候发生了错误，需要初始化实例才能启动");
+		return id;
+	}
+	if (!handler)
+	{
+		this->setError(error, Enums::ToastError::InvalidHandler);
+		Libray::Util::ToastPlatformLog()->error("无效的事件处理句柄，句柄不能为空指针");
+		return id;
+	}
+	ComPtr<IToastNotificationManagerStatics> notificationManager;
+	HRESULT hr = Wrap_GetActivationFactory(HstringWrapper(RuntimeClass_Windows_UI_Notifications_ToastNotificationManager).Get(), &notificationManager);
+	do {
+		if (FAILED(hr))
+			break;
+		ComPtr<IToastNotifier> notifier;
+		hr = notificationManager->CreateToastNotifierWithId(HstringWrapper(this->_aumi).Get(), &notifier);
+		if (FAILED(hr))
+			break;
+		ComPtr<IToastNotificationFactory> notificationFactory;
+		hr = Wrap_GetActivationFactory(HstringWrapper(RuntimeClass_Windows_UI_Notifications_ToastNotification).Get(), &notificationFactory);
+		if (FAILED(hr))
+			break;
+		helper::ToastComponentHelper Dom;
+		hr = notificationManager->GetTemplateContent(ABI::Windows::UI::Notifications::ToastTemplateType(toast.getType()), &Dom.xml);
+		if (SUCCEEDED(hr) && toast.isToastGeneric())
+			hr = Dom.setBindToastGeneric();
+		UINT i = 0;
+		for (auto& it : toast.getTextFields())
+		{
+			hr = Dom.setTextField(toast.getTextField(Enums::TextField(i)),i);
+			i++;
+		}
+		if (!(SUCCEEDED(hr) && Infomation::isSupportingModernFeatures()))
+		{
+			Libray::Util::ToastPlatformLog()->warn(L"当前版本不支持该现代特性: -> (Actions/Sounds/Attributes)", Libray::Util::AsString(Dom.xml));
+			break;
+		}
+		if (SUCCEEDED(hr) && !toast.getAttributionText().empty())
+			hr = Dom.setAttributionTextField(toast.getAttributionText());
+		std::array<WCHAR, 12> buf{};
+		for (std::size_t i = 0, actionsCount = toast.getActionsCount(); i < actionsCount && SUCCEEDED(hr); i++)
+		{
+			_snwprintf_s(buf.data(), buf.size(), _TRUNCATE, L"%zd", i);
+			hr = Dom.addAction(toast.getActionLabel(i), buf.data());
+		}
+		if (SUCCEEDED(hr))
+			hr = (toast.getAudioPath().empty() && toast.getAudioOption() == Enums::AudioOption::Default) ? hr : Dom.setAudioField(toast.getAudioPath(),toast.getAudioOption());
+		if (SUCCEEDED(hr) && toast.getDuration() != Enums::Duration::System)
+			hr = Dom.addDuration((toast.getDuration() == Enums::Duration::Short) ? L"short" : L"long");
+		if (SUCCEEDED(hr))
+			hr = Dom.addScenario(toast.getScenario());
+		if (FAILED(hr))
+			break;
+		bool isWin10AnniversaryOrAbove = Infomation::isWin10AnniversaryOrHigher();
+		bool isCircleCropHint = isWin10AnniversaryOrAbove ? toast.isCropHintCircle() : false;
+		hr = toast.hasImage() ? Dom.setImageField(toast.getImagePath(), toast.isToastGeneric(), isCircleCropHint) : hr;
+		if (SUCCEEDED(hr) && isWin10AnniversaryOrAbove && toast.hasHeroImage())
+			hr = Dom.setHeroImage(toast.getHeroImagePath(), toast.isInlineHeroImage());
+		ComPtr<IToastNotification> notification;
+		hr = notificationFactory->CreateToastNotification(Dom.xml.Get(), &notification);
+		if (FAILED(hr))
+			break;
+		INT64 expiration = 0, relativeExpiration = toast.getExpiration();
+		if (relativeExpiration > 0)
+		{
+			InternalDateTime* expirationDateTime =
+				dynamic_cast<InternalDateTime*>(
+					new Interface::sigmaInterface::Implement::__InternalDateTime(relativeExpiration));
+			expiration = *expirationDateTime;
+			hr = notification->put_ExpirationTime(expirationDateTime);
+			expirationDateTime->Release();
+		}
+		EventRegistrationToken activatedToken{}, dismissedToken{}, failedToken{};
+		GUID guid;
+		HRESULT hrGuid = CoCreateGuid(&guid);
+		id = guid.Data1;
+		if (!(SUCCEEDED(hr) && SUCCEEDED(hrGuid)))
+			break;
+		hr = API::setEventHandler(notification.Get(), handler, expiration, activatedToken, dismissedToken, failedToken, [this, id]() { markAsReadyForDeletion(id); });
+		if (FAILED(hr))
+			this->setError(error, Enums::ToastError::InvalidHandler);
+		if (FAILED(hr))
+			break;
+		this->_buffer.emplace(id, NotifyData(notification, activatedToken, dismissedToken, failedToken));
+		Libray::Util::ToastPlatformLog()->info(L"构建Toast得到的XML内容: {}", Libray::Util::AsString(Dom.xml));
+		hr = notifier->Show(notification.Get());
+		if (FAILED(hr))
+			this->setError(error, Enums::ToastError::NotDisplayed);
+	} while (false);
+	return FAILED(hr) ? -1 : id;
+}
+
+void cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::clear()
+{
+	auto succeded = false;
+	auto notify = notifier(&succeded);
+	if (!succeded)
+		return;
+	for (auto& data : _buffer)
+	{
+		auto& notifyData = data.second;
+		notify->Hide(notifyData.notification());
+		notifyData.RemoveTokens();
+	}
+	_buffer.clear();
+}
+
+Enums::ShortcutResult cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::createShortcut()
+{
+	if (this->_aumi.empty() || this->_appName.empty())
+	{
+		Libray::Util::ToastPlatformLog()->warn("错误：用户模型或用户名中，其中有一个为空");
+		return Enums::ShortcutResult::SHORTCUT_MISSING_PARAMETERS;
+	}
+	if (!this->_hasCoInitialized)
+	{
+		do {
+			HRESULT initHr = CoInitializeEx(nullptr, COINIT::COINIT_APARTMENTTHREADED);
+			if (initHr == RPC_E_CHANGED_MODE)
+				break;
+			if (FAILED(initHr) && initHr != S_FALSE)
+			{
+				Libray::Util::ToastPlatformLog()->error("无法初始化COM库组件!");
+				return Enums::ShortcutResult::SHORTCUT_COM_INIT_FAILURE;
+			}
+			else
+				this->_hasCoInitialized = true;
+		} while (false);
+	}
+	bool wasChanged;
+	HRESULT hr = validateShellLinkHelper(wasChanged);
+	if (SUCCEEDED(hr)) 
+		return wasChanged ? Enums::ShortcutResult::SHORTCUT_WAS_CHANGED : Enums::ShortcutResult::SHORTCUT_UNCHANGED;
+	return SUCCEEDED(createShellLinkHelper()) ? Enums::ShortcutResult::SHORTCUT_WAS_CREATED : Enums::ShortcutResult::SHORTCUT_CREATE_FAILED;
+}
+
+inline void cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::markAsReadyForDeletion(_In_ INT64 id)
+{
+	for (auto it = this->_buffer.begin(); it != this->_buffer.end();)
+	{
+		if (it->second.isReadyForDeletion())
+		{
+			it->second.RemoveTokens();
+			it = this->_buffer.erase(it);
+		}
+		else
+			it++;
+	}
+	auto const iter = _buffer.find(id);
+	if (iter != _buffer.end())
+		this->_buffer[id].markAsReadyForDeletion();
+}
+
+inline HRESULT cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::validateShellLinkHelper(_Out_ bool& wasChanged)
+{
+	WCHAR path[MAX_PATH] = { L'\0' };
+	Libray::Util::defaultShellLinkPath(_appName, path);
+	DWORD attr = GetFileAttributesW(path);
+	if (attr >= 0xFFFFFFF)
+	{
+		DEBUG_MESSAGE(L"未找到快捷方式，尝试创建一个!");
+		return E_FAIL;
+	}
+	ComPtr<IShellLinkW> IshellLinkptr;
+	HRESULT hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&IshellLinkptr));
+	do {
+		if (FAILED(hr))
+			break;
+		ComPtr<IPersistFile> file;
+		hr = IshellLinkptr.As(&file);
+		if (FAILED(hr))
+			break;
+		hr = file->Load(path, STGM_READWRITE);
+		if (FAILED(hr))
+			break;
+		ComPtr<IPropertyStore> store;
+		hr = IshellLinkptr.As(&store);
+		if (FAILED(hr))
+			break;
+		PROPVARIANT appIdPropVar;
+		hr = store->GetValue(PKEY_AppUserModel_ID, &appIdPropVar);
+		if (FAILED(hr))
+			break;
+		WCHAR AUMI[MAX_PATH];
+		hr = cloudgameZero::Foundation::dynamincLibrayFunc::function::PropVariantToString(appIdPropVar, AUMI, MAX_PATH);
+		wasChanged = false;
+		if (FAILED(hr) || this->_aumi != AUMI)
+		{
+			if (this->_shortcutPolicy != Enums::ShortcutPolicy::SHORTCUT_POLICY_REQUIRE_CREATE)
+				return E_FAIL;
+			wasChanged = true;
+			PropVariantClear(&appIdPropVar);
+			hr = InitPropVariantFromString(_aumi.c_str(), &appIdPropVar);
+			if (FAILED(hr))
+				return hr;
+			hr = store->SetValue(PKEY_AppUserModel_ID, appIdPropVar);
+			if (FAILED(hr))
+				break;
+			hr = store->Commit();
+			if (SUCCEEDED(hr) && SUCCEEDED(file->IsDirty()))
+				hr = file->Save(path, TRUE);
+		}
+	} while (false);
+	return hr;
+}
+
+HRESULT cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::createShellLinkHelper()
+{
+	if (_shortcutPolicy != Enums::ShortcutPolicy::SHORTCUT_POLICY_REQUIRE_CREATE)
+		return E_FAIL;
+	WCHAR exePath[MAX_PATH]{ L'\0' };
+	WCHAR slPath[MAX_PATH]{ L'\0' };
+	Libray::Util::defaultShellLinkPath(_appName, slPath);
+	Libray::Util::defaultExecutablePath(exePath);
+	HRESULT hr = NULL;
+	do {
+		if (hr = CoInitialize(NULL); FAILED(hr))
+			return hr;
+		ComPtr<IShellLinkW> IshellLinkptr;
+		hr = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&IshellLinkptr);
+		if (FAILED(hr))
+			break;
+		ComPtr<IPersistFile> file;
+		IshellLinkptr->SetPath(exePath);
+		IshellLinkptr->SetWorkingDirectory(exePath);
+		ComPtr<IPropertyStore> store;
+		hr = IshellLinkptr.As(&store);
+		if (FAILED(hr))
+			break;
+		PROPVARIANT appIdPropVar;
+		hr = InitPropVariantFromString(this->_aumi.c_str(), &appIdPropVar);
+		if (FAILED(hr))
+			break;
+		hr = store->SetValue(PKEY_AppUserModel_ID, appIdPropVar);
+		if (FAILED(hr))
+			break;
+		hr = store->Commit();
+		if (FAILED(hr))
+			break;
+		PropVariantClear(&appIdPropVar);
+		hr = IshellLinkptr.As(&file);
+		if (FAILED(hr))
+			break;
+		file->Save(slPath, TRUE);
+		file->Release();
+		IshellLinkptr->Release();
+		CoUninitialize();
+		return S_OK;
+	} while (false);
+	CoUninitialize();
+	return hr;
+}
+
+ComPtr<IToastNotifier> cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::notifier(_In_ bool* succeded) const
+{
+	using namespace cloudgameZero::Foundation::dynamincLibrayFunc::function;
+	using namespace cloudgameZero::Foundation::Warpper;
+	ComPtr<IToastNotificationManagerStatics> notificationManager;
+	ComPtr<IToastNotifier> notifier;
+	HRESULT hr = Wrap_GetActivationFactory(HstringWrapper(RuntimeClass_Windows_UI_Notifications_ToastNotificationManager).Get(), &notificationManager);
+	if (SUCCEEDED(hr))
+		hr = notificationManager->CreateToastNotifierWithId(HstringWrapper(_aumi).Get(), &notifier);
+	*succeded = SUCCEEDED(hr);
+	return notifier;
+}
+#pragma endregion
+
+extern void test()
+{
+	int* ptr = static_cast<int*>(registry["Test"]());
+	std::cout << ptr << "\n";
+	ptr = static_cast<int*>(registry["Test"]());
+	std::cout << ptr << "\n";
 }
 
 #pragma warning(pop)
