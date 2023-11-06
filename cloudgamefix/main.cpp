@@ -99,9 +99,13 @@ LRESULT __stdcall WindowProcedure(HWND window, unsigned int msg, WPARAM wp, LPAR
 	}
 }
 
+namespace Dism
+{
+
+}
+
 int main(int argc, CHAR** argv)
 {
-	auto logger = Experiment::log::zeroLogA::getLogger();
 	HANDLE INSTANCE_EVENT = CreateEventA(NULL, FALSE, FALSE, "cloudgameFixZero init process");
 	/*std::jthread thread = std::jthread([]()
 		{
@@ -109,6 +113,8 @@ int main(int argc, CHAR** argv)
 			exit(0);
 		}
 	);*/
+	cloudgamePtr<cgSystem> ptr = nullptr;
+	createInstance(ptr);
 	PRESSANYBOTTON();
 	if (INSTANCE_EVENT)
 	{
@@ -176,12 +182,6 @@ int main(int argc, CHAR** argv)
 			return CallNextHookEx(NULL, nCode, wParam, lParam);
 		});
 	//Hook.startHook(cloudgameZero::InstallHookType::KEYBORAD_LL);
-	Experiment::window::Window window;
-	window.setCallBack(WindowProcedure);
-	window.setInstance(GetModuleHandleA(NULL));
-	window.setClassName(L"My_Simple_ClassWindow");
-	//window.startWithAsyhc();
-	//window.create();
 	std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	INT value{};
 	unstable::RtlAdjustPrivilege(unstable::SeTakeOwnershipPrivilege, TRUE, FALSE, &value);
@@ -208,17 +208,6 @@ int main(int argc, CHAR** argv)
 	{
 		throw std::runtime_error("无法创建实例");
 	}*/
-	coro::coroutine_void<int> fun = []() -> coro::coroutine_void<int>
-		{
-			std::cout << "协程开始" << "\n";
-			co_yield 1;
-			co_return;
-		}
-	();
-	while (fun.move())
-	{
-		std::cout << fun.getYieldValue() << "\n";
-	}
 	//std::cin >> hr;
 	//CL()->info("Hello World");
 	//Foundation::Tool::PRESSANYBOTTON();

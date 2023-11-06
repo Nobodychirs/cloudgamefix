@@ -250,7 +250,7 @@ namespace cloudgameZero
 
 			cloudgamePtr& operator=(cloudgamePtr&& other)
 			{
-				cloudgamePtr(static_cast<cloudgamePtr&&>(other)).swap(*this);
+				cloudgamePtr(static_cast<cloudgamePtr&>(other)).swap(*this);
 				return *this;
 			}
 
@@ -331,9 +331,6 @@ namespace cloudgameZero
 				{
 				}
 			}
-		}
-		inline namespace log
-		{
 		}
 	}
 	namespace Interface
@@ -650,10 +647,6 @@ namespace cloudgameZero
 			Fatal
 		};
 
-		static std::fstream* logFileStream;
-
-		static bool logSession;
-
 		static const std::map<cloudgameZero::Infomation::level, std::string> levels = {
 			{Reserved,	"ERROR"},
 			{Trace,		"TRACE"},
@@ -680,7 +673,7 @@ namespace cloudgameZero
 		template<typename Ty>
 		concept __cginterface = std::is_class_v<Ty> && std::is_base_of_v<IUnknown,Ty>;
 
-		static std::unordered_map<std::string, delegate<void*>> factoryMapping;
+		extern std::unordered_map<std::string, delegate<void*>> factoryMapping;
 	}
 
 	using logLevel = Infomation::level;
@@ -1464,26 +1457,6 @@ namespace cloudgameZero
 		}
 	}
 
-	static void startLoggerSession()
-	{
-		if (Infomation::logFileStream && Infomation::logSession)
-		{
-			return;
-		}
-		Infomation::logFileStream = (std::fstream*)::operator new(sizeof(std::fstream));
-		Infomation::logSession = true;
-	}
-
-	static void endLoggerSession()
-	{
-		if (!(Infomation::logFileStream && Infomation::logSession))
-		{
-			return;
-		}
-		::operator delete(Infomation::logFileStream);
-		Infomation::logSession = false;
-	}
-
 	/* 用于对C++20协程的简单支持.*/
 	namespace coro
 	{
@@ -1577,95 +1550,6 @@ namespace cloudgameZero
 			std::coroutine_handle<promise_type> hCoroutine;
 			coroutine(std::coroutine_handle<promise_type> Handle) :hCoroutine(Handle) {}
 		};
-		
-		template<typename T>
-		class coroutine_void
-		{
-		public:
-			static_assert(!std::is_const_v<T>, "The C++ Standard forbids containers of const elements because allocator<const T> is ill-formed.");
-			static_assert(!std::is_function_v<T>, "The C++ Standard forbids allocators for function element because of [allocator.requirements].");
-			static_assert(!std::is_reference_v<T>, "The C++ Standard forbids allocators for reference elements because of [allocator.requirements].");
-
-			struct promise_type
-			{
-				T value;
-
-				auto get_return_object()
-				{
-					return coroutine_void{ handle::from_promise(*this) };
-				}
-				
-				auto initial_suspend()
-				{
-					return std::suspend_always{};
-				}
-				
-				auto final_suspend() noexcept
-				{
-					return std::suspend_always{};
-				}
-				
-				void unhandled_exception()
-				{
-					return std::terminate();
-				}
-				
-				auto yield_value(T value)
-				{
-					this->value = value;
-					return std::suspend_always{};
-				}
-
-				void return_void()
-				{
-					return;
-				}
-			};
-
-			using handle = std::coroutine_handle<promise_type>;
-
-			coroutine_void(coroutine_void&& other) noexcept
-			{
-				if (this == std::addressof(other))
-				{
-					return;
-				}
-				this->hCoroutine = std::exchange(other.hCoroutine, nullptr);
-			}
-
-			~coroutine_void()
-			{
-				if (hCoroutine)
-				{
-					hCoroutine.destroy();
-				}
-			}
-
-			inline auto Get() noexcept
-			{
-				return hCoroutine;
-			}
-
-			inline void resume()
-			{
-				return hCoroutine.resume();
-			}
-
-			T getYieldValue() const noexcept
-			{
-				return hCoroutine.promise().value;
-			}
-
-			inline bool move()
-			{
-				this->hCoroutine.resume();
-				return hCoroutine.done();
-			}
-
-		private:
-			std::coroutine_handle<promise_type> hCoroutine;
-			coroutine_void(std::coroutine_handle<promise_type> Handle) :hCoroutine(Handle) {}
-		};
 
 		template<typename T>
 		class awaitable
@@ -1731,76 +1615,6 @@ namespace cloudgameZero
 		private:
 			std::coroutine_handle<promise_type> hCoroutine;
 			awaitable(std::coroutine_handle<promise_type> Handle) :hCoroutine(Handle) {}
-		};
-
-		template<typename T>
-		class awaitable_void
-		{
-			static_assert(!std::is_const_v<T>, "The C++ Standard forbids containers of const elements because allocator<const T> is ill-formed.");
-			static_assert(!std::is_function_v<T>, "The C++ Standard forbids allocators for function element because of [allocator.requirements].");
-			static_assert(!std::is_reference_v<T>, "The C++ Standard forbids allocators for reference elements because of [allocator.requirements].");
-
-			struct promise_type
-			{
-				auto get_return_object()
-				{
-					return awaitable_void
-					{
-						std::coroutine_handle<promise_type>::from_promise(*this) 
-					};
-				}
-				
-				auto initial_suspend()
-				{
-					return std::suspend_always{};
-				}
-				
-				auto final_suspend() noexcept
-				{
-					return std::suspend_always{};
-				}
-				
-				void unhandled_exception()
-				{
-					return std::terminate();
-				}
-				
-				void return_void()
-				{
-				}
-
-				void yield_value(T data)
-				{
-					this->data = data;
-				}
-				
-				T data;
-			};
-
-			bool await_ready()
-			{
-				return false;
-			}
-			
-			void await_suspend(std::coroutine_handle<> h)
-			{
-				h.resume();
-			}
-			
-			void await_resume()
-			{
-				return;
-			}
-			
-			T getValue()
-			{
-				return hCoroutine.promise().data;
-			}
-		private:
-			std::coroutine_handle<promise_type> hCoroutine;
-			awaitable_void(std::coroutine_handle<promise_type> Handle) :hCoroutine(Handle) 
-			{
-			}
 		};
 	}
 
@@ -2778,197 +2592,6 @@ namespace cloudgameZero
 				}
 
 				/**
-				 * \brief 此部分写于2023/8/2.
-				 * \brief 基于WideToMuti设计的安全版本函数
-				 *
-				 * \param str 被引用的std::wstring字符串
-				 * \param buffer 接收转换结果的缓冲区
-				 * \param size 被引用字符串的长度
-				 * \return 如果引用字符串为空，返回NULL，如果size为NULL，将会返回需要的长度，如果成功返回写入的字符数
-				 */
-				static size_t WideToMuti_S(const std::wstring& str, std::string& buffer, size_t size)
-				{
-					if (str.empty())
-					{
-						return NULL;
-					}
-					int len = static_cast<int>(lstrlenW(str.c_str()));
-					if (size == NULL)
-					{
-						return len;
-					}
-					std::allocator<CHAR> alloc;
-					CHAR* mutiByte = alloc.allocate(len + 1);
-					size_t write = WideCharToMultiByte(CP_ACP, NULL, str.c_str(), len, mutiByte, static_cast<int>(len), NULL, NULL);
-					buffer = mutiByte;
-					alloc.deallocate(mutiByte, len + 1);
-					return write;
-				}
-
-				/**
-				 * \brief 此部分写于2023/8/2.
-				 * \brief 基于WideToMuti
-				 *
-				 * \param str 被引用的std::wstring字符串
-				 * \param buffer 接收转换结果的缓冲区
-				 * \param size 被引用字符串的长度
-				 * \return 如果引用字符串为空，返回NULL，如果size为NULL，将会返回需要的长度，如果成功返回写入的字符数
-				 */
-				static size_t MutiToWide_S(const std::wstring& str, std::string& buffer, size_t size)
-				{
-					if (str.empty())
-					{
-						return NULL;
-					}
-					int len = static_cast<int>(lstrlenW(str.c_str()));
-					if (size == NULL)
-					{
-						return len;
-					}
-					std::allocator<CHAR> alloc;
-					CHAR* mutiByte = alloc.allocate(len + 1);
-					size_t write = WideCharToMultiByte(CP_ACP, NULL, str.c_str(), len, mutiByte, static_cast<int>(len), NULL, NULL);
-					buffer = mutiByte;
-					alloc.deallocate(mutiByte,len + 1);
-					return write;
-				}
-
-				typedef size_t(CALLBACK* curlCallBack)(char* ptr, size_t size, size_t nmemb, void* stream);
-
-				/**
-				 * \brief 此部分写于2023/8/18.
-				 * \brief 从url中获取数据，以GET请求方式
-				 * \brief 批注
-				 * \brief 使用时可能会引发curl内部异常
-				 *
-				 * \param url
-				 * \return 如果能获取到数据，则代表已完成GET请求，否则返回值为空的std::string
-				 */
-				static std::string getDataFromUrl(std::string url)
-				{
-					CURL* curl = curl_easy_init();
-					std::string response;
-					CURLcode res{};
-					if (!curl)
-					{
-						std::cerr << "Can't Create Instance For Curl\n";
-						return response;
-					}
-					url = gbkToUtf8(url);
-					curlCallBack callback = Infomation::curlResponseCallBack;
-					curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-					curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, true);
-					curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, false);
-					curl_easy_setopt(curl, CURLOPT_REFERER, "http://www.baidu.com");
-					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callback);
-					curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&response);
-					curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30);
-					curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30);
-					res = curl_easy_perform(curl);
-					curl_easy_cleanup(curl);
-					response = cloudgameZero::Foundation::Tool::function::utf8ToGbk(response);
-					return response;
-				}
-
-				static std::string postDataRequest(std::string url, std::string param)
-				{
-					CURL* curl = curl_easy_init();
-					CURLcode code;
-					std::string response;
-					url = gbkToUtf8(url);
-					param = gbkToUtf8(param);
-					curlCallBack callback = Infomation::curlResponseCallBack;
-					curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, true);
-					curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, false);
-					curl_easy_setopt(curl, CURLOPT_REFERER, "http://www.baidu.com");
-					curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-					curl_easy_setopt(curl, CURLOPT_POSTFIELDS, param.c_str());
-					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callback);
-					curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&response);
-					curl_easy_setopt(curl, CURLOPT_POST, 1);
-					curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
-					curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30);
-					curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30);
-					code = curl_easy_perform(curl);
-					if (code != CURLE_OK)
-					{
-						return std::string();
-					}
-					response = cloudgameZero::Foundation::Tool::function::utf8ToGbk(response);
-					curl_easy_cleanup(curl);
-					return response;
-				}
-
-				static CURLcode getDownload(std::string filename, std::string url)
-				{
-					std::fstream file;
-					url = gbkToUtf8(url);
-					file.open(filename, std::ios::binary | std::ios::out);
-					CURL* curl = curl_easy_init();
-					CURLcode code;
-					curlCallBack callback = Infomation::curlFileCallback;
-					curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callback);
-					curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
-					curl_easy_setopt(curl, CURLOPT_REFERER, "http://www.baidu.com");
-					curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&file);
-					curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30);
-					curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30);
-					code = curl_easy_perform(curl);
-					return code;
-				}
-
-				static CURLcode postDownload(std::string filename, std::string url, std::string param)
-				{
-					std::FILE* file;
-					url = gbkToUtf8(url);
-					param = gbkToUtf8(param);
-					fopen_s(&file, filename.c_str(), "wb");
-					CURL* curl = curl_easy_init();
-					CURLcode code;
-					curlCallBack callback = Infomation::curlFileCallback;
-					curl_easy_setopt(curl, CURLOPT_POST, 1);
-					curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-					curl_easy_setopt(curl, CURLOPT_POSTFIELDS, param.c_str());
-					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callback);
-					curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
-					curl_easy_setopt(curl, CURLOPT_REFERER, "http://www.baidu.com");
-					curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
-					curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30);
-					curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30);
-					code = curl_easy_perform(curl);
-					return code;
-				}
-
-				/**
-				 * 用于在编译期计算期间计算多字节字符串或宽字节字符串的函数.
-				 *
-				 * \param str 字符串变量
-				 * \return 如果合法，返回字符串长度（不包含'\0')，否则返回0
-				 */
-				template<typename type>
-				constexpr inline std::size_t StrLenCEXPR(type str)
-				{
-
-					std::size_t count = NULL;
-					if constexpr (std::is_same_v<type, const char*> || std::is_same_v<type, char*>) {
-						while (*str++ != '\0')
-						{
-							count++;
-						}
-						return count;
-					}
-					else if constexpr (std::is_same_v<type, const wchar_t*> || std::is_same_v<type, wchar_t*>) {
-						while (*str++ != L'\0')
-						{
-							count++;
-						}
-						return count;
-					}
-					return count;
-				}
-
-				/**
 				 * 用于计算多字节字符串或宽字节字符串的函数.
 				 *
 				 * \param str 字符串变量
@@ -3006,7 +2629,7 @@ namespace cloudgameZero
 						PrintError("CreateToolhelp32Snapshot fail!!");
 						return false;
 					}
-					PROCESSENTRY32W program_info;
+					PROCESSENTRY32W program_info{};
 					program_info.dwSize = sizeof(PROCESSENTRY32W);
 					int bResult = Process32FirstW(info_handle, &program_info);
 					if (!bResult)
@@ -4162,17 +3785,11 @@ namespace cloudgameZero
 									size = data.size() + 1;
 								}
 								else if (Type == REG_SZ)
-								{
 									size = data.size() + 1;
-								}
 								else if (Type == REG_EXPAND_SZ)
-								{
 									size = data.size() + 1;
-								}
 								else
-								{
 									LibError(std::runtime_error("无法识别类型"));
-								}
 								break;
 							}
 							if (Type == REG_DWORD)
@@ -4187,13 +3804,9 @@ namespace cloudgameZero
 								error = RegSetValueExA(currentHandle, keyname.c_str(), NULL, Type, reinterpret_cast<LPBYTE>(&Data), size);
 							}
 							else
-							{
 								error = RegSetValueExA(currentHandle, keyname.c_str(), NULL, Type, (LPBYTE)data.c_str(), size);
-							}
 							if (error != ERROR_SUCCESS)
-							{
 								bus.post("reg_set_failed",&error);
-							}
 							return;
 						}
 
@@ -4656,1782 +4269,1088 @@ namespace cloudgameZero
 			}
 		}
 
-		inline namespace log
+		class logConfig
 		{
-			class logConfig
+		public:
+			enum class _ostream
 			{
-			public:
-				enum class _ostream
-				{
-					reserved,
-					cerr,
-					cout,
-					clog
-				};
-				enum class _wostream
-				{
-					reserved,
-					wcerr,
-					wcout,
-					wclog
-				};
+				reserved,
+				cerr,
+				cout,
+				clog
+			};
+			enum class _wostream
+			{
+				reserved,
+				wcerr,
+				wcout,
+				wclog
+			};
 
-				~logConfig() = default;
+			~logConfig() = default;
 
-				void InitConfig(std::string filename)
+			void InitConfig(std::string filename)
+			{
+				try
 				{
-					try
+					if (_isInit)
 					{
-						if (_isInit)
-						{
-							return;
-						}
-						parseHelper(filename);
+						return;
 					}
-					catch (...)
-					{
-						genDefaultSettings(filename);
-						parseHelper(filename);
-					}
-					try
-					{
-						this->files = filename;
-						this->Render = this->_root["outToTerminal"]["render"].GetBool();
-						std::string tmpfile = this->_root["logToFile"]["File"]["filename"].GetString();
-						std::string format = this->_root["logToFile"]["File"]["TimeFormat"].GetString();
-						bool needFormatFile = this->_root["logToFile"]["File"]["format"].GetBool();
-						if (std::regex_search(tmpfile, std::regex(R"(\$\{format\})")) && needFormatFile)
-						{
-							std::time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-							std::tm tms;
-							gmtime_s(&tms, &tt);
-							localtime_s(&tms, &tt);
-							std::stringstream stream;
-							stream << "\\" << std::put_time(&tms, format.c_str());
-							std::string time = stream.str();
-
-							this->filename = std::regex_replace(tmpfile, std::regex(R"(\$\{format\})"), time);
-						}
-						this->_isInit = true;
-					}
-					catch (...)
-					{
-						genDefaultSettings(filename);
-						InitConfig(filename);
-					}
+					parseHelper(filename);
 				}
-
-				operator std::string()
+				catch (...)
 				{
-					rapidjson::StringBuffer buf;
-					rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
-					this->_root.Accept(writer);
-					return buf.GetString();
+					genDefaultSettings(filename);
+					parseHelper(filename);
 				}
-
-				operator const char* ()
+				try
 				{
-					rapidjson::StringBuffer buf;
-					rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
-					this->_root.Accept(writer);
-					return buf.GetString();
-				}
+					this->files = filename;
+					this->Render = this->_root["outToTerminal"]["render"].GetBool();
+					std::string tmpfile = this->_root["logToFile"]["File"]["filename"].GetString();
+					std::string format = this->_root["logToFile"]["File"]["TimeFormat"].GetString();
+					bool needFormatFile = this->_root["logToFile"]["File"]["format"].GetBool();
+					if (std::regex_search(tmpfile, std::regex(R"(\$\{format\})")) && needFormatFile)
+					{
+						std::time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+						std::tm tms;
+						gmtime_s(&tms, &tt);
+						localtime_s(&tms, &tt);
+						std::stringstream stream;
+						stream << "\\" << std::put_time(&tms, format.c_str());
+						std::string time = stream.str();
 
-				inline bool IsInit()
+						this->filename = std::regex_replace(tmpfile, std::regex(R"(\$\{format\})"), time);
+					}
+					this->_isInit = true;
+				}
+				catch (...)
 				{
-					return this->_isInit;
+					genDefaultSettings(filename);
+					InitConfig(filename);
 				}
+			}
 
-				void getLogDictionary(std::string& str)
-				{
-					try
-					{
-						if (!this->IsInit())
-						{
-							PrintError("需要初始化配置");
-							return;
-						}
-						std::regex pattern(R"(\$\{(\w+){1,20}\})");
-						std::regex regex(R"(\$\{(\w+){1}\})");
-						std::string tmp = this->_root["logToFile"]["Dictionary"].GetString();
-						std::string varible{};
-						std::smatch fmt{};
-						if (std::regex_search(tmp, fmt, pattern))
-						{
-							std::string format = fmt.str();
-							if (format == "${APPDATA}" || format == "${appdata}")
-							{
-								varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("APPDATA");
-							}
-							else if (format == "${userprofile}" || format == "${USERPROFILE}")
-							{
-								varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("userprofile");
-							}
-							else if (format == "${LOCAL}" || format == "${local}")
-							{
-								varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("userprofile");
-								varible += "\\APPDATA\\Local";
-							}
-							else if (format == "${TEMP}" || format == "${TMP}")
-							{
-								varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("temp");
-							}
-							else if (format == "${format}" || format == "${}")
-							{
-								varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("APPDATA");
-							}
-							else
-							{
-								LibError(std::exception("无法找到环境变量，请问您设置的字符串格式化是否正确?"));
-							}
-							if (std::string _str = std::regex_replace(tmp, regex, varible); !_str.empty()) {
-								str = _str;
-								return;
-							}
-							else
-							{
-								LibError(std::runtime_error("无法替换正则"));
-							}
-						}
-						str = tmp;
-					}
-					catch (...)
-					{
-						genDefaultSettings(this->files);
-						getLogDictionary(str);
-					}
-				}
+			operator std::string()
+			{
+				rapidjson::StringBuffer buf;
+				rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+				this->_root.Accept(writer);
+				return buf.GetString();
+			}
 
-				std::string parseFileName()
-				{
-					try
-					{
-						if (!this->IsInit())
-						{
-							PrintError("需要初始化配置");
-							return std::string();
-						}
-						std::string format = this->_root["logToFile"]["File"]["TimeFormat"].GetString();
-						std::string file = this->_root["logToFile"]["File"]["filename"].GetString();
-						if (this->_root["logToFile"]["File"]["format"].GetBool())
-						{
-							std::time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-							std::tm tms;
-							gmtime_s(&tms, &tt);
-							localtime_s(&tms, &tt);
-							std::stringstream stream;
-							stream << "\\" << std::put_time(&tms, format.c_str());
-							std::string time = stream.str();
-							this->filename = std::regex_replace(file, std::regex(R"(\$\{format\})"), time);
-						}
-						return this->filename;
-					}
-					catch (...)
-					{
-						genDefaultSettings(this->files);
-						return parseFileName();
-					}
-				}
+			operator const char* ()
+			{
+				rapidjson::StringBuffer buf;
+				rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+				this->_root.Accept(writer);
+				return buf.GetString();
+			}
 
-				int getMin()
-				{
-					try
-					{
-						static const std::map<std::string, int> levels = {
-							{"trace",1},
-							{"debug",2},
-							{"info", 3},
-							{"warn", 4},
-							{"error",5},
-							{"fatal",6}
-						};
-						std::string find = this->_root["outToTerminal"]["rootLogger"]["level"].GetString();
-						std::ranges::transform(find, find.begin(), ::tolower);
-						auto it = levels.find(find);
-						CLOUDGAMEFIX_ASSERT(it != levels.end());
-						return it->second;
-					}
-					catch (...)
-					{
-						genDefaultSettings(this->files);
-						return getMin();
-					}
-				}
+			inline bool IsInit()
+			{
+				return this->_isInit;
+			}
 
-				_ostream getLogObjectType()
+			void getLogDictionary(std::string& str)
+			{
+				try
 				{
 					if (!this->IsInit())
+					{
+						PrintError("需要初始化配置");
+						return;
+					}
+					std::regex pattern(R"(\$\{(\w+){1,20}\})");
+					std::regex regex(R"(\$\{(\w+){1}\})");
+					std::string tmp = this->_root["logToFile"]["Dictionary"].GetString();
+					std::string varible{};
+					std::smatch fmt{};
+					if (std::regex_search(tmp, fmt, pattern))
+					{
+						std::string format = fmt.str();
+						if (format == "${APPDATA}" || format == "${appdata}")
+						{
+							varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("APPDATA");
+						}
+						else if (format == "${userprofile}" || format == "${USERPROFILE}")
+						{
+							varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("userprofile");
+						}
+						else if (format == "${LOCAL}" || format == "${local}")
+						{
+							varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("userprofile");
+							varible += "\\APPDATA\\Local";
+						}
+						else if (format == "${TEMP}" || format == "${TMP}")
+						{
+							varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("temp");
+						}
+						else if (format == "${format}" || format == "${}")
+						{
+							varible = cloudgameZero::Foundation::Tool::function::GetEnvironmentVariableA("APPDATA");
+						}
+						else
+						{
+							LibError(std::exception("无法找到环境变量，请问您设置的字符串格式化是否正确?"));
+						}
+						if (std::string _str = std::regex_replace(tmp, regex, varible); !_str.empty()) {
+							str = _str;
+							return;
+						}
+						else
+						{
+							LibError(std::runtime_error("无法替换正则"));
+						}
+					}
+					str = tmp;
+				}
+				catch (...)
+				{
+					genDefaultSettings(this->files);
+					getLogDictionary(str);
+				}
+			}
+
+			std::string parseFileName()
+			{
+				try
+				{
+					if (!this->IsInit())
+					{
+						PrintError("需要初始化配置");
+						return std::string();
+					}
+					std::string format = this->_root["logToFile"]["File"]["TimeFormat"].GetString();
+					std::string file = this->_root["logToFile"]["File"]["filename"].GetString();
+					if (this->_root["logToFile"]["File"]["format"].GetBool())
+					{
+						std::time_t tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+						std::tm tms;
+						gmtime_s(&tms, &tt);
+						localtime_s(&tms, &tt);
+						std::stringstream stream;
+						stream << "\\" << std::put_time(&tms, format.c_str());
+						std::string time = stream.str();
+						this->filename = std::regex_replace(file, std::regex(R"(\$\{format\})"), time);
+					}
+					return this->filename;
+				}
+				catch (...)
+				{
+					genDefaultSettings(this->files);
+					return parseFileName();
+				}
+			}
+
+			int getMin()
+			{
+				try
+				{
+					static const std::map<std::string, int> levels = {
+						{"trace",1},
+						{"debug",2},
+						{"info", 3},
+						{"warn", 4},
+						{"error",5},
+						{"fatal",6}
+					};
+					std::string find = this->_root["outToTerminal"]["rootLogger"]["level"].GetString();
+					std::ranges::transform(find, find.begin(), ::tolower);
+					auto it = levels.find(find);
+					CLOUDGAMEFIX_ASSERT(it != levels.end());
+					return it->second;
+				}
+				catch (...)
+				{
+					genDefaultSettings(this->files);
+					return getMin();
+				}
+			}
+
+			_ostream getLogObjectType()
+			{
+				if (!this->IsInit())
+				{
+					PrintError("无法解析终端设置");
+					return _ostream::reserved;
+				}
+				static const std::map<std::string, logConfig::_ostream> ostreamobject = {
+				   {"std::cout",logConfig::_ostream::cout},
+				   {"std::cerr",logConfig::_ostream::cerr},
+				   {"std::clog",logConfig::_ostream::clog},
+				   {"stdcout",logConfig::_ostream::cout},
+				   {"stdcerr",logConfig::_ostream::cerr},
+				   {"stdclog",logConfig::_ostream::clog},
+				   {"cout",logConfig::_ostream::cout},
+				   {"cerr",logConfig::_ostream::cerr},
+				   {"clog",logConfig::_ostream::clog},
+				   {"null",logConfig::_ostream::reserved}
+				};
+				try
+				{
+					if (!this->_root.HasMember("outToTerminal") && !this->_root["outToTerminal"].IsObject())
 					{
 						PrintError("无法解析终端设置");
 						return _ostream::reserved;
 					}
-					static const std::map<std::string, logConfig::_ostream> ostreamobject = {
-					   {"std::cout",logConfig::_ostream::cout},
-					   {"std::cerr",logConfig::_ostream::cerr},
-					   {"std::clog",logConfig::_ostream::clog},
-					   {"stdcout",logConfig::_ostream::cout},
-					   {"stdcerr",logConfig::_ostream::cerr},
-					   {"stdclog",logConfig::_ostream::clog},
-					   {"cout",logConfig::_ostream::cout},
-					   {"cerr",logConfig::_ostream::cerr},
-					   {"clog",logConfig::_ostream::clog},
-					   {"null",logConfig::_ostream::reserved}
-					};
-					try
+					if (!this->_root["outToTerminal"].HasMember("rootLogger") && !this->_root["outToTerminal"]["rootLogger"].IsObject())
 					{
-						if (!this->_root.HasMember("outToTerminal") && !this->_root["outToTerminal"].IsObject())
-						{
-							PrintError("无法解析终端设置");
-							return _ostream::reserved;
-						}
-						if (!this->_root["outToTerminal"].HasMember("rootLogger") && !this->_root["outToTerminal"]["rootLogger"].IsObject())
-						{
-							PrintError("无法解析rootLogger对象");
-							return _ostream::reserved;
-						}
-						if (!this->_root["outToTerminal"]["rootLogger"].HasMember("ostream") && !this->_root["outToTerminal"]["rootLogger"]["wostream"].IsObject())
-						{
-							PrintError("无法解析ostream对象");
-							return _ostream::reserved;
-						}
-						std::string os = this->_root["outToTerminal"]["rootLogger"]["ostream"].GetString();
-						auto itr = ostreamobject.find(os);
-						assert(itr != ostreamobject.end());
-						return itr->second;
+						PrintError("无法解析rootLogger对象");
+						return _ostream::reserved;
 					}
-					catch (...)
+					if (!this->_root["outToTerminal"]["rootLogger"].HasMember("ostream") && !this->_root["outToTerminal"]["rootLogger"]["wostream"].IsObject())
 					{
-						genDefaultSettings(this->files);
-						return getLogObjectType();
+						PrintError("无法解析ostream对象");
+						return _ostream::reserved;
 					}
+					std::string os = this->_root["outToTerminal"]["rootLogger"]["ostream"].GetString();
+					auto itr = ostreamobject.find(os);
+					assert(itr != ostreamobject.end());
+					return itr->second;
 				}
-
-				_wostream getWideOstreamType()
+				catch (...)
 				{
-					if (!this->IsInit())
+					genDefaultSettings(this->files);
+					return getLogObjectType();
+				}
+			}
+
+			_wostream getWideOstreamType()
+			{
+				if (!this->IsInit())
+				{
+					PrintError("无法解析终端设置");
+					return _wostream::reserved;
+				}
+				static const std::map<std::string, logConfig::_wostream> wostreamobject = {
+				   {"std::wcout",logConfig::_wostream::wcout},
+				   {"std::wcerr",logConfig::_wostream::wcerr},
+				   {"std::wclog",logConfig::_wostream::wclog},
+				   {"stdwcout",logConfig::_wostream::wcout},
+				   {"stdwcerr",logConfig::_wostream::wcerr},
+				   {"stdwclog",logConfig::_wostream::wclog},
+				   {"wcout",logConfig::_wostream::wcout},
+				   {"wcerr",logConfig::_wostream::wcerr},
+				   {"wclog",logConfig::_wostream::wclog},
+				   {"null",logConfig::_wostream::reserved}
+				};
+				try
+				{
+					if (!this->_root.HasMember("outToTerminal") && !this->_root["outToTerminal"].IsObject())
 					{
 						PrintError("无法解析终端设置");
 						return _wostream::reserved;
 					}
-					static const std::map<std::string, logConfig::_wostream> wostreamobject = {
-					   {"std::wcout",logConfig::_wostream::wcout},
-					   {"std::wcerr",logConfig::_wostream::wcerr},
-					   {"std::wclog",logConfig::_wostream::wclog},
-					   {"stdwcout",logConfig::_wostream::wcout},
-					   {"stdwcerr",logConfig::_wostream::wcerr},
-					   {"stdwclog",logConfig::_wostream::wclog},
-					   {"wcout",logConfig::_wostream::wcout},
-					   {"wcerr",logConfig::_wostream::wcerr},
-					   {"wclog",logConfig::_wostream::wclog},
-					   {"null",logConfig::_wostream::reserved}
-					};
-					try
+					if (!this->_root["outToTerminal"].HasMember("rootLogger") && !this->_root["outToTerminal"]["rootLogger"].IsObject())
 					{
-						if (!this->_root.HasMember("outToTerminal") && !this->_root["outToTerminal"].IsObject())
-						{
-							PrintError("无法解析终端设置");
-							return _wostream::reserved;
-						}
-						if (!this->_root["outToTerminal"].HasMember("rootLogger") && !this->_root["outToTerminal"]["rootLogger"].IsObject())
-						{
-							PrintError("无法解析rootLogger对象");
-							return _wostream::reserved;
-						}
-						if (!this->_root["outToTerminal"]["rootLogger"].HasMember("ostream") && !this->_root["outToTerminal"]["rootLogger"]["ostream"].IsObject())
-						{
-							PrintError("无法解析ostream对象");
-							return _wostream::reserved;
-						}
-						std::string os = this->_root["outToTerminal"]["rootLogger"]["wostream"].GetString();
-						auto itr = wostreamobject.find(os);
-						assert(itr != wostreamobject.end());
-						return itr->second;
+						PrintError("无法解析rootLogger对象");
+						return _wostream::reserved;
 					}
-					catch (...)
+					if (!this->_root["outToTerminal"]["rootLogger"].HasMember("ostream") && !this->_root["outToTerminal"]["rootLogger"]["ostream"].IsObject())
 					{
-						genDefaultSettings(filename);
-						return getWideOstreamType();
+						PrintError("无法解析ostream对象");
+						return _wostream::reserved;
 					}
+					std::string os = this->_root["outToTerminal"]["rootLogger"]["wostream"].GetString();
+					auto itr = wostreamobject.find(os);
+					assert(itr != wostreamobject.end());
+					return itr->second;
 				}
-
-				inline _NODISCARD bool needRender() noexcept
+				catch (...)
 				{
-					return this->Render;
+					genDefaultSettings(filename);
+					return getWideOstreamType();
 				}
+			}
 
-				inline _NODISCARD rapidjson::Document& getDocment() noexcept
-				{
-					return this->_root;
-				}
-
-				inline _NODISCARD std::string getFileName() noexcept
-				{
-					return this->filename;
-				}
-
-				static void genDefaultSettings(std::string filename)
-				{
-					if (filename.empty())
-					{
-						LibError(std::invalid_argument("文件名不能为空"));
-					}
-					/* 开始构建Document */
-					rapidjson::Document Dom;
-					rapidjson::StringBuffer sb;
-					rapidjson::PrettyWriter pw(sb);
-					Dom.Parse(Infomation::logconfig_json.data());
-					auto var = IS_DEBUG ? "Trace" : "Info";
-					Dom["outToTerminal"]["rootLogger"]["level"].SetString(var, Foundation::Tool::StrLenCEXPR(var));
-					Dom.Accept(pw);
-					std::fstream f;
-					if (std::filesystem::exists(filename))
-					{
-						f.open(filename, std::ios::in);
-						f.peek();
-						if (f.eof())
-						{
-							f.close();
-							std::cout << "检测到空文件\n";
-							f.open(filename, std::ios::app);
-						}
-						else
-						{
-							f.close();
-							f.open(filename, std::ios::out | std::ios::trunc);
-						}
-					}
-					else
-					{
-						f.open(filename, std::ios::out | std::ios::trunc);
-					}
-					if (!f.is_open())
-					{
-						LibError(std::runtime_error("无法打开文件"));
-					}
-					f << sb.GetString();
-					f.close();
-				}
-
-				void saveSettings(std::string_view filename)
-				{
-					auto& Dom = this->_root;
-					if (Dom.Null())
-					{
-						return;
-					}
-					rapidjson::StringBuffer sb;
-					rapidjson::PrettyWriter pw(sb);
-					Dom.Accept(pw);
-					std::fstream f;
-					if (std::filesystem::exists(filename.data()))
-					{
-						f.open(filename, std::ios::in);
-						f.peek();
-						if (f.eof())
-						{
-							f.close();
-							std::cout << "检测到空文件\n";
-							f.open(filename, std::ios::app);
-						}
-						else
-						{
-							f.close();
-							f.open(filename, std::ios::out | std::ios::trunc);
-						}
-					}
-					else
-					{
-						f.open(filename, std::ios::out | std::ios::trunc);
-					}
-					if (!f.is_open())
-					{
-						LibError(std::runtime_error("无法打开文件"));
-					}
-					f << sb.GetString();
-					f.close();
-				}
-
-			private:
-				bool parseHelper(std::string filename)
-				{
-					if (filename.empty())
-					{
-						LibError(std::invalid_argument("字符串不能为空"));
-					}
-					std::ifstream reader(filename);
-					if (!reader.is_open())
-					{
-						LibError(std::invalid_argument("无法打开文件"));
-					}
-					reader >> std::noskipws;
-					std::string json_content((std::istream_iterator<char>(reader)), std::istream_iterator<char>());
-					reader.close();
-					if (!this->_root.Parse(json_content.c_str()).HasParseError())
-					{
-						return true;
-					}
-					else
-					{
-						LibError(std::exception("无法解析json"));
-						return false;
-					}
-				}
-				rapidjson::Document _root;
-				std::string filename;
-				std::string files;
-				bool _isInit = false;
-				bool Enable = true;
-				bool OutPut = true;
-				bool Save = true;
-				bool NoPreOutPut = false;
-				bool showDetail = true;
-				bool ShowTime = true;
-				bool ShowUser = true;
-				bool Render = true;
-			};
-
-			typedef std::list<std::string> logList;
-
-			#pragma region zeroLog
-			class zeroLog
+			inline _NODISCARD bool needRender() noexcept
 			{
-			public:
+				return this->Render;
+			}
 
-				/**
-				*  \brief 此部分写于2023/8/12
-				 * \brief 日志类构造函数.
-				 *
-				 * \param init 决定是否在构造期间初始化
-				 * \param file 决定日志使用的配置文件名
-				 * \param CallBack 可选，如果希望在运行阶段修改配置，此处应提供一个函数用于回调，它将以引用方式进行传递，如果不希望使用请指定其为nullptr
-				 * \param 委托原型： typedef void(__stdcall* logConfCallBackFunc)(rapidjson::Document& Dom);
-				 * \param mark 用于标记日志来源（可选，表示输出的来源）
-				 * \param server 用于标记模块（可选，表示模块名）
-				 */
-				explicit zeroLog(
-					bool init,
-					std::string file = "logConfig.json",
-					delegate<void,rapidjson::Document&> CallBack = nullptr,
-					std::string mark = "main",
-					std::string server = "ZERO"
-				) : times(NULL), mark(mark), server(server)
+			inline _NODISCARD rapidjson::Document& getDocment() noexcept
+			{
+				return this->_root;
+			}
+
+			inline _NODISCARD std::string getFileName() noexcept
+			{
+				return this->filename;
+			}
+
+			static void genDefaultSettings(std::string filename)
+			{
+				if (filename.empty())
 				{
-					conf = std::make_unique<logConfig>();
-					if (!std::filesystem::exists(file))
+					LibError(std::invalid_argument("文件名不能为空"));
+				}
+				/* 开始构建Document */
+				rapidjson::Document Dom;
+				rapidjson::StringBuffer sb;
+				rapidjson::PrettyWriter pw(sb);
+				Dom.Parse(Infomation::logconfig_json.data());
+				auto var = IS_DEBUG ? "Trace" : "Info";
+				Dom["outToTerminal"]["rootLogger"]["level"].SetString(var, IS_DEBUG ? sizeof("Trace") - 1 : sizeof("Info") - 1);
+				Dom.Accept(pw);
+				std::fstream f;
+				if (std::filesystem::exists(filename))
+				{
+					f.open(filename, std::ios::in);
+					f.peek();
+					if (f.eof())
 					{
-						DEBUG_MESSAGE("未找到配置文件\n准备生成一个默认配置");
-						conf->InitConfig(file);
-						if (CallBack)
-						{
-							CallBack(conf->getDocment());
-						}
+						f.close();
+						std::cout << "检测到空文件\n";
+						f.open(filename, std::ios::app);
 					}
-					conf->InitConfig(file);
+					else
+					{
+						f.close();
+						f.open(filename, std::ios::out | std::ios::trunc);
+					}
+				}
+				else
+					f.open(filename, std::ios::out | std::ios::trunc);
+				if (!f.is_open())
+					LibError(std::runtime_error("无法打开文件"));
+				f << sb.GetString();
+				f.close();
+			}
+
+			void saveSettings(std::string_view filename)
+			{
+				auto& Dom = this->_root;
+				if (Dom.IsNull())
+					return;
+				rapidjson::StringBuffer sb;
+				rapidjson::PrettyWriter pw(sb);
+				Dom.Accept(pw);
+				std::fstream f;
+				if (std::filesystem::exists(filename.data()))
+				{
+					f.open(filename, std::ios::in);
+					f.peek();
+					if (f.eof())
+					{
+						f.close();
+						std::cout << "检测到空文件\n";
+						f.open(filename, std::ios::app);
+					}
+					else
+					{
+						f.close();
+						f.open(filename, std::ios::out | std::ios::trunc);
+					}
+				}
+				else
+				{
+					f.open(filename, std::ios::out | std::ios::trunc);
+				}
+				if (!f.is_open())
+				{
+					LibError(std::runtime_error("无法打开文件"));
+				}
+				f << sb.GetString();
+				f.close();
+			}
+
+		private:
+			bool parseHelper(std::string filename)
+			{
+				if (filename.empty())
+				{
+					LibError(std::invalid_argument("字符串不能为空"));
+				}
+				std::ifstream reader(filename);
+				if (!reader.is_open())
+				{
+					LibError(std::invalid_argument("无法打开文件"));
+				}
+				reader >> std::noskipws;
+				std::string json_content((std::istream_iterator<char>(reader)), std::istream_iterator<char>());
+				reader.close();
+				if (!this->_root.Parse(json_content.c_str()).HasParseError())
+				{
+					return true;
+				}
+				else
+				{
+					LibError(std::exception("无法解析json"));
+					return false;
+				}
+			}
+			rapidjson::Document _root;
+			std::string filename;
+			std::string files;
+			bool _isInit = false;
+			bool Enable = true;
+			bool OutPut = true;
+			bool Save = true;
+			bool NoPreOutPut = false;
+			bool showDetail = true;
+			bool ShowTime = true;
+			bool ShowUser = true;
+			bool Render = true;
+		};
+
+		template<typename type>
+		concept string = std::is_same_v<type, char> || std::is_same_v<type, wchar_t>;
+
+		template<string type>
+		struct msg
+		{
+			constexpr msg() noexcept = default;
+			constexpr msg(msg&& other) noexcept = default;
+			constexpr msg(Infomation::level level, std::basic_string_view<type> msg) : level(level), _msg(msg)
+			{
+			}
+			Infomation::level level{};
+			std::basic_string_view<type> _msg{};
+			std::basic_string<type> buffer{};
+		};
+
+		template<string type>
+		class zeroLogT
+		{
+		public:
+			/**
+			 * \brief 此部分写于2023/8/12
+			 * \brief 日志类构造函数.
+			 *
+			 * \param init 决定是否在构造期间初始化
+			 * \param file 决定日志使用的配置文件名
+			 * \param CallBack 可选，如果希望在运行阶段修改配置，此处应提供一个函数用于回调，它将以引用方式进行传递，如果不希望使用请指定其为nullptr
+			 * \param 委托原型： typedef void(__stdcall* logConfCallBackFunc)(rapidjson::Document& Dom);
+			 * \param mark 用于标记日志来源（可选，表示输出的来源）
+			 * \param server 用于标记模块（可选，表示模块名）
+			 */
+			explicit zeroLogT(
+				_In_opt_ std::string_view profile,
+				_In_opt_ std::string_view mark = "main",
+				_In_opt_ std::string_view server = "ZERO",
+				_In_opt_ delegate<void, rapidjson::Document&> CallBack = nullptr
+			) : times(NULL), mark(mark), server(server), time(NULL)
+			{
+				EventBus bus;
+				auto mainKey = Infomation::regMark.find(mark.data());
+				if (mainKey == Infomation::regMark.end())
+					Infomation::regMark.insert({ mark.data(),{server.data()} });
+				else
+				{
+					auto it = mainKey->second.find(server.data());
+					if (it != mainKey->second.end())
+					{
+						PrintError("无法注册对象，因为每个模块是独立的，除非拿到那个模块名称的日志对象被关闭或者被析构!");
+						bus.post("registry_object_failed");
+						return;
+					}
+					mainKey->second.insert(server.data());
+				}
+				conf = std::make_unique<Foundation::logConfig>();
+				if (!std::filesystem::exists(profile))
+				{
+					DEBUG_MESSAGE("未找到配置文件\n准备生成一个默认配置");
+					conf->InitConfig(profile.data());
 					if (CallBack)
-					{
 						CallBack(conf->getDocment());
-					}
-					conf->saveSettings(file);
-					this->minLevel = conf->getMin();
-					if (init)
-					{
-						this->Init();
-					}
 				}
+				conf->InitConfig(profile.data());
+				if (CallBack)
+					CallBack(conf->getDocment());
+				conf->saveSettings(profile);
+				this->minLevel = conf->getMin();
+				init();
+			}
 
-				/**
-				 * 每一个日志类对象是独一无二的实例，因此空参构造和拷贝构造以及赋值运算符将不会提供给用户.
-				 */
-				zeroLog() = delete;
-				zeroLog& operator=(zeroLog& other) = delete;
-				zeroLog(zeroLog& other) = delete;
+			using message = msg<type>;
 
-				~zeroLog()
+
+			/**
+			 * Each log class object is a unique instance, so the empty argument and copy constructs and assignment operators will not be provided to the user.
+			 */
+			zeroLogT() = delete;
+			zeroLogT& operator=(zeroLogT<type>& other) = delete;
+			zeroLogT(zeroLogT<type>& other) = delete;
+
+			~zeroLogT()
+			{
+				this->close();
+			}
+
+			void init()
+			{
+				using namespace Foundation;
+				using namespace Foundation::Tool;
+				rapidjson::Document& Dom = conf->getDocment();
+				if (this->hasInit())
 				{
-					this->close();
+					DEBUG_MESSAGE("这个实例已经被初始化过了");
+					return;
 				}
-
-				inline void editServerName(std::string server)
+				if (!Dom["logToFile"]["Enable"].GetBool() && !Dom["logToFile"]["Enable"].GetBool())
 				{
-					if (server.empty())
-					{
-						return;
-					}
-					this->server = server;
+					DEBUG_MESSAGE("为什么你要在两者都不启用的情况下进行初始化，请问这是否是有意而为之?");
+					return;
 				}
-
-				inline void editMark(std::string mark)
+				if (Dom["logToFile"]["Enable"].GetBool())
 				{
-					if (mark.empty())
-					{
-						return;
-					}
-					this->server = mark;
-				}
-
-				inline void setPath(std::string path)
-				{
-					if (path.empty())
-					{
-						return;
-					}
-					this->file = path;
-				}
-
-				void Init()
-				{
-					using namespace Foundation::Tool;
-					rapidjson::Document& Dom = conf->getDocment();
-					if (this->HasInit())
-					{
-						DEBUG_MESSAGE("这个实例已经被初始化过了");
-						return;
-					}
-					this->levels = {
-						{Trace,		"TRACE"},
-						{Debug,		"DEBUG"},
-						{Info,		"INFO"},
-						{Warn,		"WARN"},
-						{Error,		"ERROR"},
-						{Fatal,		"FATAL"},
-					};
-					if (!Dom["logToFile"]["Enable"].GetBool() && !Dom["logToFile"]["Enable"].GetBool())
-					{
-						DEBUG_MESSAGE("为什么你要在两者都不启用的情况下进行初始化，请问这是否是有意而为之?");
-						return;
-					}
-					if (Dom["logToFile"]["Enable"].GetBool())
-					{
+					do {
+						if (fs == nullptr)
+							fs = new std::fstream;
 						std::string dict;
 						if (this->file.empty())
 						{
 							conf->getLogDictionary(dict);
 							if (!std::filesystem::exists(dict))
-							{
 								std::filesystem::create_directories(dict);
-							}
 							std::string filename = conf->parseFileName();
 							dict += filename;
 						}
 						else
-						{
 							dict = this->file;
-						}
 						if (Dom["logToFile"]["append"].GetBool())
-						{
-							this->fs.open(dict, std::ios::app);
-						}
+							fs->open(dict, std::ios::app);
 						else
-						{
-							this->fs.open(dict, std::ios::out);
-						}
-						if (!fs.is_open())
-						{
+							fs->open(dict, std::ios::out);
+						if (!fs->is_open())
 							throw std::runtime_error("无法打开文件，出现了异常");
-						}
 						this->file = dict;
-						this->EnableFileOut.store(true);
-					}
-					if (Dom["outToTerminal"]["Enable"].GetBool())
-					{
-						if (logConfig::_ostream ostream = conf->getLogObjectType(); ostream != logConfig::_ostream::reserved)
-						{
-							switch (ostream)
-							{
-							case logConfig::_ostream::clog:
-							{
-								this->object = &std::clog;
-								break;
-							}
-							case logConfig::_ostream::cout:
-							{
-								this->object = &std::cout;
-								break;
-							}
-							case logConfig::_ostream::cerr:
-							{
-								this->object = &std::cerr;
-								break;
-							}
-							}
-						}
-						else
-						{
-							throw std::runtime_error("无法获取ostream对象");
-						}
-						if (logConfig::_wostream ostream = conf->getWideOstreamType(); ostream != logConfig::_wostream::reserved)
-						{
-							switch (ostream)
-							{
-							case logConfig::_wostream::wclog:
-							{
-								this->wobject = &std::wclog;
-								break;
-							}
-							case logConfig::_wostream::wcout:
-							{
-								this->wobject = &std::wcout;
-								break;
-							}
-							case logConfig::_wostream::wcerr:
-							{
-								this->wobject = &std::wcerr;
-								break;
-							}
-							}
-						}
-						else {
-							throw std::runtime_error("无法获取ostream对象");
-						}
-						this->EnableTerminalOut = true;
-					}
-					this->logTimeFormat = Dom["logFormatTime"].GetString();
-					this->render = Dom["outToTerminal"]["render"].GetBool();
-					this->cleanBuffer = Dom["outToTerminal"]["rootLogger"]["cleanBuffer"]["clean"].GetBool();
-					this->times = Dom["outToTerminal"]["rootLogger"]["cleanBuffer"]["times"].GetUint();
-					this->showUser = Dom["outToTerminal"]["showUser"].GetBool();
-					this->EnableThreadSecurity = Dom["EnableThreadSecurity"].GetBool();
-					this->has_init.store(true);
+						this->EnableFileOut = true;
+					} while (false);
 				}
-
-				inline bool HasInit()
+				if (Dom["outToTerminal"]["Enable"].GetBool())
 				{
-					return this->has_init;
-				}
-
-				/*================================================================
-				日志库提供的运算符重载
-				左移运算符<<用于运行时更换ostream对象，支持shared_ptr和unique_ptr友元重载
-
-				================================================================*/
-
-				inline void operator<<(std::ostream& object)
-				{
-					this->object = &object;
-				}
-
-				inline friend void operator<<(std::unique_ptr<zeroLog>& ptr, std::ostream& ostream)
-				{
-					ptr->object = &ostream;
-				}
-
-				inline friend void operator<<(std::shared_ptr<zeroLog>& ptr, std::ostream& ostream)
-				{
-					ptr->object = &ostream;
-				}
-
-				inline void operator>>(std::string_view filename)
-				{
-					this->close();
-					this->getFilePath() = filename;
-					this->Init();
-				}
-
-				inline friend void operator>>(std::unique_ptr<zeroLog>& ptr, std::string_view filename)
-				{
-					ptr->close();
-					ptr->getFilePath() = filename;
-					ptr->Init();
-				}
-
-				inline friend void operator>>(std::shared_ptr<zeroLog>& ptr, std::string_view filename)
-				{
-					ptr->close();
-					ptr->file = filename;
-					ptr->Init();
-				}
-
-				/*=================================================================
-				日志类提供了6个等级的成员函数用于记录日志
-				每个等级拥有2个可变参数模板和2个普通成员函数
-				用于处理std::string和std::wstring数据类型
-				模板函数用于通过std::format处理格式化字符串
-				注：
-				logConfig的等级代表最小记录等级，例如等级如果为Trace，则所有等级日志都可见
-				但如果等级为Info，则Trace和Debug将不会被记录，而只是被临时存储到list容器
-				如果编译为Debug模式，库将会生成一个最低记录等级为Trace的配置文件，反之为Info
-				==================================================================*/
-
-				/*================================================================
-				| 当调试时需要追踪调试时，使用此成员函数打印日志
-				| 当logConfig等级为Trace时，此成员函数打印的日志将被记录到文件并打印到终端
-				| 如果等级大于Trace，则此日志仅临时存储在list容器中
-				================================================================*/
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Trace的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void trace(const std::string message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Debug, message);
-							this->write(Debug, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Debug, message);
-						this->write(Debug, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Trace的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void trace(const std::wstring message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Trace, message);
-							this->write(Trace, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Trace, message);
-						this->write(Trace, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Trace的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void trace(const std::string_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Trace, already);
-							this->write(Trace, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Trace, already);
-						this->write(Trace, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Trace的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void trace(const std::wstring_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Trace, already);
-							this->write(Trace, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Trace, already);
-						this->write(Trace, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/*==================================================================
-				| 当调试时运行在调试时，使用此成员函数打印日志
-				| 当logConfig等级为debug时，此成员函数打印的日志将被记录到文件并打印到终端
-				| 如果等级大于debug，则此日志仅临时存储在list容器中
-				==================================================================*/
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Debug的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void debug(const std::string message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Info, message);
-							this->write(Info, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Info, message);
-						this->write(Info, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Debug的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void debug(const std::wstring message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Info, message);
-							this->write(Info, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Info, message);
-						this->write(Info, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Debug的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void debug(const std::string_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Debug, already);
-							this->write(Debug, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Debug, already);
-						this->write(Debug, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Debug的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void debug(const std::wstring_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Debug, already);
-							this->write(Debug, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Debug, already);
-						this->write(Debug, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/*==============================================================
-				| 当程序用于记录正常运行时，使用此成员函数打印日志
-				| 当logConfig等级为Info时，此成员函数打印的日志将被记录到文件并打印到终端
-				| 如果等级不为Info，则此日志仅临时存储在list容器中
-				==============================================================*/
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Info的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void info(const std::string message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Info, message);
-							this->write(Info, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Info, message);
-						this->write(Info, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Info的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void info(const std::wstring message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Info, message);
-							this->write(Info, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Info, message);
-						this->write(Info, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Info的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void info(const std::string_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Info, already);
-							this->write(Info, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Info, already);
-						this->write(Info, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Info的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void info(const std::wstring_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Info, already);
-							this->write(Info, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Info, already);
-						this->write(Info, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/*===============================================================================
-				| 当程序用于记录发生的小错误时，使用此成员函数打印日志，如有需要可配合stacktrace函数打印调用堆栈
-				| 不建议修改等级到warn或更高
-				| 因为筛选过多的日志可能会导致可维护性降低
-				===============================================================================*/
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Warn的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void warn(const std::string message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Warn, message);
-							this->write(Warn, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Warn, message);
-						this->write(Warn, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Warn的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void warn(const std::wstring message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Warn, message);
-							this->write(Warn, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Warn, message);
-						this->write(Warn, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Warn的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void warn(const std::string_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Warn, already);
-							this->write(Warn, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Warn, already);
-						this->write(Warn, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Warn的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void warn(const std::wstring_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Warn, already);
-							this->write(Warn, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Warn, already);
-						this->write(Warn, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/*==============================================================================
-				| 当程序用于记录发生的错误时，使用此成员函数打印日志，如有需要可配合stacktrace函数打印调用堆栈
-				| 不建议修改等级到warn或更高
-				| 因为筛选过多的日志可能会导致可维护性降低
-				===============================================================================*/
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Error的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void error(const std::string message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Error, message);
-							this->write(Error, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Error, message);
-						this->write(Error, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Error的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void error(const std::wstring message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Error, message);
-							this->write(Error, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Error, message);
-						this->write(Error, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Error的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void error(const std::string_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Error, already);
-							this->write(Error, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Error, already);
-						this->write(Error, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Error的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void error(const std::wstring_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Error, already);
-							this->write(Error, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Error, already);
-						this->write(Error, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/*=============================================================================================
-				| 当程序用于记录发生的随时有可能会崩溃的错误时，使用此成员函数打印日志，如有需要可配合stacktrace函数打印调用堆栈
-				| 强烈不建议修改等级到此等级
-				| 因为筛选过多的日志可能会导致可维护性降低，且可能会有大量的信息疏漏
-				==============================================================================================*/
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Fatal的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void fatal(const std::string message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Fatal, message);
-							this->write(Fatal, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Fatal, message);
-						this->write(Fatal, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Fatal的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void fatal(const std::wstring message)
-				{
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto logs = this->makeLogs(Fatal, message);
-							this->write(Fatal, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto logs = this->makeLogs(Fatal, message);
-						this->write(Fatal, logs);
-						this->pushList(logs);
-					}
-				}
-
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Fatal的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void fatal(const std::string_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt, args...);
-							auto logs = this->makeLogs(Fatal, already);
-							this->write(Fatal, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						auto logs = this->makeLogs(Fatal, already);
-						this->write(Fatal, logs);
-						this->pushList(logs);
-					}
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 处理格式化字符串并打印等级为Fatal的日志
-				 *
-				 * \param fmt 待格式化字符串
-				 * \param args 格式化参数
-				*/
-				template<typename... Types>
-				void fatal(const std::wstring_view fmt, Types&&... args)
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex, std::defer_lock);
-					if (this->EnableThreadSecurity)
-					{
-						if (lock.try_lock_for(std::chrono::microseconds(1)))
-						{
-							auto already = this->makeFormat(fmt.data(), args...);
-							std::wstring logs = this->makeLogs(Fatal, already);
-							this->write(Fatal, logs);
-							this->pushList(logs);
-						}
-					}
-					else
-					{
-						auto already = this->makeFormat(fmt, args...);
-						std::wstring logs = this->makeLogs(Fatal, already);
-						this->write(Fatal, logs);
-						this->pushList(logs);
-					}
-				}
-
-				void stackTrace()
-				{
-					using namespace Foundation::Tool;
-					if (!this->HasInit())
-					{
-						this->Init();
-					}
-					std::unique_lock<std::timed_mutex> lock(this->mutex);
-					std::string logs = this->makeLogs(Warn, std::format("\n Here Is The StackTrace's Content: \n{}", boost::stacktrace::to_string(boost::stacktrace::stacktrace())));
-					this->write(Warn, logs);
-					this->pushList(logs);
-				}
-
-				inline void close()
-				{
-					if (!this->HasInit())
-					{
-						return;
-					}
-					this->fs.close();
-					this->object = nullptr;
-					this->levels.clear();
-					this->logList.clear();
-					this->has_init = false;
-				}
-
-				inline std::string getLastLog()
-				{
-					return this->buffer;
-				}
-
-				inline void operator=(std::string server)
-				{
-					this->server = server;
-				}
-
-				int selectLog(int level, bool show = true)
-				{
-					if (level < Trace || level > Fatal)
-					{
-						throw std::invalid_argument("错误的参数");
-					}
-					using std::regex;
-					using std::regex_search;
-					static std::vector<regex> re = {
-						{regex("TRACE")},
-						{regex("DEBUG")},
-						{regex("INFO")},
-						{regex("WARN")},
-						{regex("ERROR")},
-						{regex("FATAL")},
-					};
-					int find = 0;
-					for (auto& iterator : this->logList)
-					{
-						if (regex_search(iterator, re[level]))
-						{
-							if (show)
-							{
-								*this->object << iterator << "\n";
-							}
-							find++;
-						}
-					}
-					return find;
-				}
-
-				inline std::size_t size()
-				{
-					return this->logList.size();
-				}
-
-				inline std::string& getFilePath()
-				{
-					return this->file;
-				}
-
-			private:
-				enum level
-				{
-					Reserved,
-					Trace,
-					Debug,
-					Info,
-					Warn,
-					Error,
-					Fatal
-				};
-				inline static void renderTerminal(level levels)
-				{
-					using CONSOLE = Foundation::Tool::CONSOLE;
-					switch (levels)
-					{
-					case level::Trace:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_BLUE | (WORD)CONSOLE::CONSOLE_COLOR_GREEN);
+					DEBUG_MESSAGE("准备获取ostream对象");
+					switch (conf->getLogObjectType())
+					{
+					case logConfig::_ostream::clog:
+						this->object = &std::clog;
 						break;
-					case level::Info:
+					case logConfig::_ostream::cout:
+						this->object = &std::cout;
 						break;
-					case level::Debug:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_GREEN);
+					case logConfig::_ostream::cerr:
+						this->object = &std::cerr;
 						break;
-					case level::Warn:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_YELLOW);
-						break;
-					case level::Error:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_LIGHTRED);
-						break;
-					case level::Fatal:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_RED);
-						break;
+					default:
+						LibError(std::runtime_error("无法获取对象"));
 					}
+					DEBUG_MESSAGE("准备获取wostream对象");
+					switch (conf->getWideOstreamType())
+					{
+					case logConfig::_wostream::wclog:
+						this->wobject = &std::wclog;
+						break;
+					case logConfig::_wostream::wcout:
+						this->wobject = &std::wcout;
+						break;
+					case logConfig::_wostream::wcerr:
+						this->wobject = &std::wcerr;
+						break;
+					default:
+						LibError(std::runtime_error("无法获取对象"));
+					}
+					wobject->imbue(Infomation::chs);
+					this->EnableTerminalOut = true;
 				}
-				inline std::string makeLogs(level report, std::string already)
+				this->logTimeFormat = Dom["logFormatTime"].GetString();
+				this->render = Dom["outToTerminal"]["render"].GetBool();
+				this->cleanBuffer = Dom["outToTerminal"]["rootLogger"]["cleanBuffer"]["clean"].GetBool();
+				this->times = Dom["outToTerminal"]["rootLogger"]["cleanBuffer"]["times"].GetUint();
+				this->showUser = Dom["outToTerminal"]["showUser"].GetBool();
+				this->EnableThreadSecurity = Dom["EnableThreadSecurity"].GetBool();
+				this->has_init = true;
+			}
+
+			inline const bool hasInit() noexcept
+			{
+				return this->has_init;
+			}
+
+			/*=================================================================
+			日志类提供了6个等级的成员函数用于记录日志
+			每个等级拥有2个可变参数模板和2个普通成员函数
+			用于处理std::string和std::wstring数据类型
+			模板函数用于通过std::format处理格式化字符串
+			注：
+			logConfig的等级代表最小记录等级，例如等级如果为Trace，则所有等级日志都可见
+			但如果等级为Info，则Trace和Debug将不会被记录，而只是被临时存储到list容器
+			如果编译为Debug模式，库将会生成一个最低记录等级为Trace的配置文件，反之为Info
+			==================================================================*/
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 打印等级为Trace的日志
+			 *
+			 * \param message 消息内容
+			 */
+			void trace(const std::basic_string_view<type> message) throw()
+			{
+				using namespace Infomation;
+				static level lev = Trace;
+				//Here we enable thread locks to prevent resource contention issues
+				std::unique_lock<std::mutex> lock(this->mutex);
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				//Here we generate a log and forward it to the write method to print out the log messages
+				auto logs = this->makeLogs(lev, message.data());
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 格式化日志消息并打印等级为Trace的日志
+			 *
+			 * \param fmt 要格式化的内容
+			 * \param ...args 要格式化的参数
+			 */
+			template<typename... Args>
+			void trace(const std::basic_string_view<type> fmt, Args... args) throw()
+			{
+				using namespace Infomation;
+				static level lev = Trace;
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				std::unique_lock<std::mutex> lock(this->mutex);
+				//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+				auto alraedy = Infomation::makeFormat(fmt, args...);
+				auto logs = this->makeLogs(lev, alraedy);
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 打印等级为debug的日志
+			 *
+			 * \param message 消息内容
+			 */
+			void debug(const std::basic_string_view<type> message) throw()
+			{
+				using namespace Infomation;
+				static level lev = Debug;
+				//Here we enable thread locks to prevent resource contention issues
+				std::unique_lock<std::mutex> lock(this->mutex);
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				//Here we generate a log and forward it to the write method to print out the log messages
+				auto logs = this->makeLogs(lev, message.data());
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 格式化日志消息并打印等级为debug的日志
+			 *
+			 * \param fmt 要格式化的内容
+			 * \param ...args 要格式化的参数
+			 */
+			template<typename... Args>
+			void debug(const std::basic_string_view<type> fmt, Args... args) throw()
+			{
+				using namespace Infomation;
+				static level lev = Debug;
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				std::unique_lock<std::mutex> lock(this->mutex);
+				//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+				auto alraedy = Infomation::makeFormat(fmt, args...);
+				auto logs = this->makeLogs(lev, alraedy);
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 打印等级为Info的日志
+			 *
+			 * \param message 消息内容
+			 */
+			void info(const std::basic_string_view<type> message) throw()
+			{
+				using namespace Infomation;
+				static level lev = Info;
+				//Here we enable thread locks to prevent resource contention issues
+				std::unique_lock<std::mutex> lock(this->mutex);
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				//Here we generate a log and forward it to the write method to print out the log messages
+				auto logs = this->makeLogs(lev, message.data());
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 格式化日志消息并打印等级为Info的日志
+			 *
+			 * \param fmt 要格式化的内容
+			 * \param ...args 要格式化的参数
+			 */
+			template<typename... Args>
+			void info(const std::basic_string_view<type> fmt, Args... args) throw()
+			{
+				using namespace Infomation;
+				static level lev = Info;
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				std::unique_lock<std::mutex> lock(this->mutex);
+				//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+				auto alraedy = Infomation::makeFormat(fmt, args...);
+				auto logs = this->makeLogs(lev, alraedy);
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 打印等级为Warn的日志
+			 *
+			 * \param message 消息内容
+			 */
+			void warn(const std::basic_string_view<type> message) throw()
+			{
+				using namespace Infomation;
+				static level lev = Warn;
+				//Here we enable thread locks to prevent resource contention issues
+				std::unique_lock<std::mutex> lock(this->mutex);
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				//Here we generate a log and forward it to the write method to print out the log messages
+				auto logs = this->makeLogs(lev, message.data());
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 格式化日志消息并打印等级为Warn的日志
+			 *
+			 * \param fmt 要格式化的内容
+			 * \param ...args 要格式化的参数
+			 */
+			template<typename... Args>
+			void warn(const std::basic_string_view<type> fmt, Args... args) throw()
+			{
+				using namespace Infomation;
+				static level lev = Warn;
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				std::unique_lock<std::mutex> lock(this->mutex);
+				//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+				auto alraedy = Infomation::makeFormat(fmt, args...);
+				auto logs = this->makeLogs(lev, alraedy);
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 打印等级为Error的日志
+			 *
+			 * \param message 消息内容
+			 */
+			void error(const std::basic_string_view<type> message) throw()
+			{
+				using namespace Infomation;
+				static level lev = Infomation::Error;
+				//Here we enable thread locks to prevent resource contention issues
+				std::unique_lock<std::mutex> lock(this->mutex);
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				//Here we generate a log and forward it to the write method to print out the log messages
+				auto logs = this->makeLogs(lev, message.data());
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 格式化日志消息并打印等级为Error的日志
+			 *
+			 * \param fmt 要格式化的内容
+			 * \param ...args 要格式化的参数
+			 */
+			template<typename... Args>
+			void error(const std::basic_string_view<type> fmt, Args... args) throw()
+			{
+				using namespace Infomation;
+				static level lev = Infomation::Error;
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				std::unique_lock<std::mutex> lock(this->mutex);
+				//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+				auto alraedy = Infomation::makeFormat(fmt, args...);
+				auto logs = this->makeLogs(lev, alraedy);
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 打印等级为Fatal的日志
+			 *
+			 * \param message 消息内容
+			 */
+			void fatal(const std::basic_string_view<type> message) throw()
+			{
+				using namespace Infomation;
+				static level lev = Fatal;
+				//Here we enable thread locks to prevent resource contention issues
+				std::unique_lock<std::mutex> lock(this->mutex);
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				//Here we generate a log and forward it to the write method to print out the log messages
+				auto logs = this->makeLogs(lev, message.data());
+				this->write(lev, logs);
+			}
+
+			/**
+			 * \brief 此内容写于2023/8/13.
+			 * \brief 格式化日志消息并打印等级为Fatal的日志
+			 *
+			 * \param fmt 要格式化的内容
+			 * \param ...args 要格式化的参数
+			 */
+			template<typename... Args>
+			void fatal(const std::basic_string_view<type> fmt, Args... args) throw()
+			{
+				using namespace Infomation;
+				static level lev = Fatal;
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				std::unique_lock<std::mutex> lock(this->mutex);
+				//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
+				auto alraedy = Infomation::makeFormat(fmt, args...);
+				auto logs = this->makeLogs(lev, alraedy);
+				this->write(lev, logs);
+			}
+
+			static friend inline zeroLogT<type>& operator<<(zeroLogT<type>& object, const message&& msg) throw()
+			{
+				using namespace Infomation;
+				//Here we enable thread locks to prevent resource contention issues
+				std::unique_lock<std::mutex> lock(this->mutex);
+				if (!object.hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					object.init();
+				/* Create a temporary variable to accept log information returned from makeLogs in the zeroLogT<type> instance object */
+				std::basic_string<type> logs;
+				if (msg.level == Reserved)
+					//For Reserved, we treat it as Info, because Reserved has no value and is used only to filter log messages
+					logs = this->makeLogs(Info, msg._msg.data());
+				else
+					logs = this->makeLogs(msg.level, msg._msg.data());
+				object.write(msg.level == Reserved ? Info : msg.level, logs);
+				//Here we call the write method in the instance object of zeroLogT<type>. At the log level, we use a ternary expression to process Reserved information and then write out the log information
+				return object; //Finally, we return a reference to the object
+			}
+
+			static friend inline zeroLogT<type>& operator>>(zeroLogT<type>& object, msg<type>& msg) throw()
+			{
+				using namespace Infomation;
+				//Here we enable thread locks to prevent resource contention issues
+				std::unique_lock<std::mutex> lock(this->mutex);
+				if (!object.hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					object.init();
+				if (msg.level == Reserved)
+					//For Reserved, we treat it as Info, because Reserved has no value and is used only to filter log messages
+					msg.buffer = object.makeLogs(Info, msg._msg.data());
+				else
+					msg.buffer = object.makeLogs(msg.level, msg._msg.data());
+					//When we get the log information, we directly assign it to the msg buffer
+				return object; //Finally, we return a reference to the object
+			}
+
+			void stackTrace()
+			{
+				using namespace Infomation;
+				using namespace Foundation::Tool;
+				//Here we enable thread locks to prevent resource contention issues
+				std::unique_lock<std::mutex> lock(this->mutex);
+				if (!this->hasInit())
+					//We check if the object is initialized, and if not, we initialize it for it
+					this->init();
+				std::string logs = this->makeLogs(Warn, std::format("\nHere Is The StackTrace's Content: \n{}", boost::stacktrace::to_string(boost::stacktrace::stacktrace())));
+				this->write(Warn, logs);
+			}
+
+			inline void close()
+			{
+				if (!this->hasInit())
+					return;
+				wobject->imbue(Infomation::_Clocale);
+				this->wobject = nullptr;
+				this->has_init = false;
+				if (fs) {
+					delete fs;
+					fs = nullptr;
+				}
+				auto it = Infomation::regMark.find(mark.data());
+				/* 我们这里要做取消注册的工作 */
+				if (it != Infomation::regMark.end())
+					it->second.erase(server.data());
+			}
+
+		private:
+			inline static void renderTerminal(Infomation::level levels)
+			{
+				using namespace Infomation;
+				using CONSOLE = Foundation::Tool::CONSOLE;
+				switch (levels)
 				{
-					using namespace Foundation::Tool;
-					using namespace Foundation::Tool::function;
-					auto it = this->levels.find(report);
-					std::string logs = "{} [{}/{}]: {} {} {}"_zF(
+				case level::Trace:
+					SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_BLUE | (WORD)CONSOLE::CONSOLE_COLOR_GREEN);
+					break;
+				case level::Info:
+					break;
+				case level::Debug:
+					SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_GREEN);
+					break;
+				case level::Warn:
+					SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_YELLOW);
+					break;
+				case level::Error:
+					SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_LIGHTRED);
+					break;
+				case level::Fatal:
+					SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_RED);
+					break;
+				}
+			}
+
+			inline std::basic_string<type> makeLogs(Infomation::level report, std::basic_string<type> already)
+			{
+				using namespace Infomation;
+				using namespace Foundation::Tool;
+				using namespace Foundation::Tool::function;
+				if constexpr (std::is_same_v<type, char>)
+				{
+					std::basic_string<type> logs = "{} [{}/{}]: {} {} {}"_zF(
 						makeTimeStr(this->logTimeFormat),
-						this->mark,
-						it->second,
-						this->mark != "main" ? std::format("[{}]", this->server) : "",
+						this->mark.data(),
+						getMappingIndex(report),
+						strcmp(this->mark.data(), "main") ? std::format("[{}]", this->server) : "",
 						this->showUser ? Foundation::Tool::function::GetUserA() : "",
 						already
 					);
 					return logs;
 				}
-				inline std::wstring makeLogs(level report, std::wstring already)
+				else if constexpr (std::is_same_v<type, wchar_t>)
 				{
-					using namespace Foundation::Tool;
-					using namespace Foundation::Tool::function;
-					auto it = this->levels.find(report);
-					std::wstring logs = L"{} [{}/{}]: {} {} {}"_zWF(
+					std::basic_string<type> logs = L"{} [{}/{}]: {} {} {}"_zWF(
 						MutiToWide(makeTimeStr(this->logTimeFormat)),
-						MutiToWide(this->mark),
-						MutiToWide(it->second),
-						MutiToWide(this->mark != "main" ? std::format("[{}]", this->server) : ""),
+						MutiToWide(this->mark.data()),
+						MutiToWide(getMappingIndex(report)),
+						MutiToWide(strcmp(this->mark.data(), "main") ? std::format("[{}]", this->server) : ""),
 						this->showUser ? Foundation::Tool::function::GetUserW() : L"",
 						already
 					);
 					return logs;
 				}
-				template<typename... Args>
-				inline std::string makeFormat(std::string_view fmt, Args&&... args)
+			}
+
+			inline LPCSTR getMappingIndex(Infomation::level report)
+			{
+				using namespace Infomation;
+				switch (report)
 				{
-					auto fmtArgs = std::make_format_args(args...);
-					std::string fmts = std::vformat(fmt, fmtArgs);
-					return fmts;
+				case level::Trace:
+					return "TRACE";
+				case level::Info:
+					return "INFO";
+				case level::Debug:
+					return "DEBUG";
+				case level::Warn:
+					return "WARN";
+				case level::Error:
+					return "ERROR";
+				case level::Fatal:
+					return "FATAL";
 				}
-				template<typename... Args>
-				inline std::wstring makeFormat(std::wstring_view fmt, Args&&... args)
+				return "\0";
+			}
+
+			inline void write(Infomation::level report, std::basic_string<type> logs)
+			{
+				// Check if the specified log level meets the minimum log level requirement.
+				using namespace Infomation;
+				if (this->minLevel > report)
+					return;// If not, do not log the message and exit the function.
+				// If terminal output is enabled, process the log message for terminal output.
+				if (this->EnableTerminalOut)
 				{
-					auto fmtArgs = std::make_wformat_args(args...);
-					std::wstring fmts = std::vformat(fmt, fmtArgs);
-					return fmts;
+					// If rendering is required, call the 'renderTerminal' function.
+					if (this->render)
+						renderTerminal(report);
+					// Write the log message to the terminal stream, depending on the character type.
+					if constexpr (std::is_same_v<type, char>)
+						/* Due to the lack of support for inserting std::string in wostream, the c_str method is called here for output. */
+						(*object) << logs;
+					else
+						/* wchar t doesn't need to be processed, so just output it */
+						(*wobject) << logs;
+					// Control message separation in terminal output based on 'cleanBuffer' and 'times'.
+					if (cleanBuffer && time < times) {
+						wobject->put(L'\n');
+						// If we don't need the actual number of cleanups to be less than the set number of cleanups, we just wrap the lines
+						time++;
+					}
+					else if (cleanBuffer && time >= times) {
+						// Simply clean up with std::endl, then reset it
+						(*wobject) << std::endl;
+						time = 0;
+					}
+					else
+						wobject->put(L'\n');
 				}
-				void write(level report, std::string logs)
+				SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)Foundation::Tool::CONSOLE::CONSOLE_COLOR_WHITE);
+				if (this->EnableFileOut)
 				{
-					if (this->minLevel > report)
-					{
-						return;
-					}
-					if (this->EnableTerminalOut)
-					{
-						if (this->render)
-						{
-							renderTerminal(report);
-						}
-						if (cleanBuffer && times <= 10) {
-							*this->object << logs << "\n";
-							this->times++;
-						}
-						else {
-							*this->object << logs << std::endl;
-							this->times = 0;
-						}
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)Foundation::Tool::CONSOLE::CONSOLE_COLOR_WHITE);
-					}
-					if (this->EnableFileOut)
-					{
-						this->fs << logs << "\n";
-					}
+					if constexpr (std::is_same_v<type, char>)
+						(*fs) << logs << "\n";
+					else if constexpr (std::is_same_v<type, wchar_t>)
+						(*fs) << Foundation::Tool::WideToMuti(logs) << "\n";
 				}
-				void write(level report, std::wstring logs)
-				{
-					if (this->minLevel > report)
-					{
-						return;
-					}
-					if (this->EnableTerminalOut)
-					{
-						if (this->render)
-						{
-							renderTerminal(report);
-						}
-						if (cleanBuffer && times <= 10) {
-							(*this->wobject).imbue(std::locale("chs"));
-							(*this->wobject) << logs;
-							(*this->wobject).imbue(std::locale("C"));
-							(*this->wobject).clear();
-							(*this->wobject) << "\n";
-							this->times++;
-						}
-						else {
-							(*this->wobject).imbue(std::locale("chs"));
-							(*this->wobject) << logs;
-							(*this->wobject).imbue(std::locale("C"));
-							(*this->wobject).clear();
-							(*this->wobject) << std::endl;
-							this->times = 0;
-						}
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)Foundation::Tool::CONSOLE::CONSOLE_COLOR_WHITE);
-					}
-					if (this->EnableFileOut)
-					{
-						this->fs << Foundation::Tool::function::WideToMuti(logs) << "\n";
-					}
-				}
-				void pushList(std::string push) noexcept
-				{
-					if (this->logList.size() >= 750)
-					{
-						this->logList.clear();
-					}
-					this->logList.push_back(push);
-				}
-				void pushList(std::wstring push) noexcept
-				{
-					if (this->logList.size() >= 750)
-					{
-						this->logList.clear();
-					}
-					this->logList.push_back(Foundation::Tool::function::WideToMuti(push));
-				}
-				int times;
-				std::string logTimeFormat;
-				std::unique_ptr<logConfig> conf;
-				std::unordered_map<level, std::string> levels;
-				std::ostream* object = nullptr;
-				std::wostream* wobject = nullptr;
-				std::ofstream fs;
-				std::string file;
-				std::string mark;
-				std::string server;
-				std::string MakeFormat;
-				std::atomic_bool render;
-				std::atomic_bool has_init;
-				std::atomic_bool EnableFileOut;
-				std::atomic_bool EnableTerminalOut;
-				std::atomic_bool cleanBuffer;
-				std::atomic_bool showUser;
-				std::atomic_bool EnableThreadSecurity;
-				std::string buffer;
-				std::timed_mutex mutex;
-				logList logList;
-				int minLevel;
-			};
-		}
+			}
+
+			int time;
+			int minLevel;
+			int times;
+			bool render;
+			bool has_init;
+			bool EnableFileOut;
+			bool EnableTerminalOut;
+			bool cleanBuffer;
+			bool showUser;
+			bool EnableThreadSecurity;
+			std::mutex mutex;
+			std::string logTimeFormat;
+			std::unique_ptr<Foundation::logConfig> conf;
+			std::ostream* object = nullptr;
+			std::wostream* wobject = nullptr;
+			std::fstream* fs;
+			std::string_view file;
+			std::string_view mark;
+			std::string_view server;
+		};
+
+		using zeroLogA = zeroLogT<char>;
+		using zeroLogW = zeroLogT<wchar_t>;
+		using msgA = zeroLogA::message;
+		using msgW = zeroLogW::message;				
 	}
 
-	static inline Foundation::zeroLog* CL(void)
+	static inline Foundation::zeroLogA* CL(void)
 	{
-		static Foundation::zeroLog INSTANCE(true);
+		static Foundation::zeroLogA INSTANCE("logConfig.json");
 		return &INSTANCE;
 	}
 
@@ -6509,6 +5428,12 @@ namespace cloudgameZero
 			 * \param theme 从Theme中的枚举量选择
 			 */
 			virtual void changeTheme(IN Theme theme) = 0;
+
+			virtual bool changeServiceStartupType(_In_ std::string servicesName, _In_ DWORD startupType) = 0;
+
+			virtual bool startService(_In_ std::string servicesName) = 0;
+
+			virtual bool startService(_In_ std::string servicesName, _In_opt_ DWORD argc, _In_opt_ LPCSTR* argv) = 0;
 		};
 
 		MakeCloudgameInterface("46A0DDA0-A59A-4557-8F18-6F359CD9B3D8")
@@ -6553,6 +5478,7 @@ namespace cloudgameZero
 			virtual void setAppName(_In_ std::wstring const& AppName) = 0;
 			virtual void setShortcutPolicy(_In_ ToastPlatform::Enums::ShortcutPolicy policy) = 0;
 			virtual bool hide(_In_ INT64 id) = 0;
+
 			/**
 			 * 
 			 * Shows a Toast notification.
@@ -6563,6 +5489,7 @@ namespace cloudgameZero
 			 */
 			virtual INT64 show(_In_ ToastPlatform::API::ToastTemplate const& toast, _In_ ToastPlatform::API::ToastPlatformHandler* eventHandler, _In_opt_ ToastPlatform::Enums::ToastError* error = nullptr) = 0;
 
+			
 			virtual void clear() = 0;
 		};
 
@@ -6856,7 +5783,16 @@ namespace cloudgameZero
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_CGSOFTWARE;	/* 设计基于cgTool安全功能的软件类接口 */
 				//extern "C++" const IID IID_CLOUDGAME_FIX_ZERO_ASCIISTYLE;	/* ascii字符画预定义接口 */
 
-				extern IUnknown* Query(_In_ const IID& iid);
+				inline IUnknown* Query(_In_ const IID& iid)
+				{
+					LPOLESTR guid{};
+					HRESULT hr = StringFromIID(iid, &guid);
+					auto itr = Implement::registry.find(Foundation::Tool::WideToMuti(guid));
+					if (itr == Implement::registry.end()) {
+						return nullptr;
+					}
+					return static_cast<IUnknown*>(itr->second());
+				}
 			}
 		}
 
@@ -7040,7 +5976,7 @@ namespace cloudgameZero
 				try
 				{
 					Ty* ptr = Infomation::factoryMapping[mapping]();
-					return nullptr;
+					return ptr;
 				}
 				catch (...)
 				{
@@ -7256,10 +6192,10 @@ namespace cloudgameZero
 				/* 此命名空间存储了通知需要的函数 */
 				namespace Util
 				{
-					static cloudgameZero::Foundation::zeroLog* ToastPlatformLog()
+					static cloudgameZero::Foundation::zeroLogW* ToastPlatformLog()
 					{
-						static cloudgameZero::Foundation::zeroLog INSTANCE(true, "logConfig.json",
-							[](rapidjson::Document& Dom) noexcept -> void
+						static cloudgameZero::Foundation::zeroLogW INSTANCE("logConfig.json","Main", "WinToastPlatform", 
+							[](rapidjson::Document& Dom)
 							{
 								if (IS_DEBUG)
 								{
@@ -7268,8 +6204,7 @@ namespace cloudgameZero
 								}
 								else
 									Dom["outToTerminal"]["Enable"].SetBool(false);
-							}
-						, "WinToastPlatform", "Main");
+							});
 						return &INSTANCE;
 					}
 					inline RTL_OSVERSIONINFOW getRealOSVersion()
@@ -7280,7 +6215,7 @@ namespace cloudgameZero
 					static HRESULT defaultExecutablePath(_In_ WCHAR* path, _In_ DWORD nSize = MAX_PATH)
 					{
 						DWORD written = ::GetModuleFileNameExW(GetCurrentProcess(), nullptr, path, nSize);
-						ToastPlatformLog()->info("默认的可执行文件位置为： {}", Foundation::Tool::function::WideToMuti(path));
+						ToastPlatformLog()->info(L"默认的可执行文件位置为： {}", path);
 						return (written > 0) ? S_OK : E_FAIL;
 					}
 
@@ -7292,7 +6227,7 @@ namespace cloudgameZero
 						{
 							errno_t result = wcscat_s(path, nSize, L"\\Microsoft\\Windows\\Start Menu\\Programs\\");
 							hr = (result == 0) ? S_OK : E_INVALIDARG;
-							ToastPlatformLog()->info("默认的快捷方式存储路径为： {}", Foundation::Tool::function::WideToMuti(path));
+							ToastPlatformLog()->info(L"默认的快捷方式存储路径为： {}", path);
 						}
 						return hr;
 					}
@@ -7304,7 +6239,7 @@ namespace cloudgameZero
 							const std::wstring appLink(appname + L".lnk");
 							errno_t result = wcscat_s(path, nSize, appLink.c_str());
 							hr = (result == 0) ? S_OK : E_INVALIDARG;
-							ToastPlatformLog()->info("默认的快捷方式文件存储路径为： {}", Foundation::Tool::function::WideToMuti(path));
+							ToastPlatformLog()->info(L"默认的快捷方式文件存储路径为： {}", path);
 						}
 						return hr;
 					}
@@ -7492,7 +6427,7 @@ namespace cloudgameZero
 					auto const position = static_cast<std::size_t>(pos);
 					if (position >= _textFields.size())
 					{
-						Libray::Util::ToastPlatformLog()->info("您选择的Toast模板仅支持： {} 行", this->_textFields.size());
+						Libray::Util::ToastPlatformLog()->info(L"您选择的Toast模板仅支持： {} 行", this->_textFields.size());
 						return;
 					}
 					this->_textFields[position] = txt;
@@ -7635,6 +6570,241 @@ namespace cloudgameZero
 		}
 	}
 
+	class Curl
+	{
+	public:
+		using curl_handle_type = CURL*;
+		typedef size_t(CALLBACK* curlCallBack)(char* ptr, size_t size, size_t nmemb, void* stream);
+		typedef int(*progressCallBack)(void* clientp, double dltotal, double dlnow, double ultotal, double ulnow);
+
+		enum class operation
+		{
+			GET,
+			POST
+		};
+
+		enum class operater
+		{
+			Download,
+			Request
+		};
+
+		~Curl()
+		{
+			cleanup();
+		}
+
+		inline void init()
+		{
+			std::unique_lock<std::mutex> lock(mtx);
+			this->Handle = curl_easy_init();
+			if (!Handle)
+			{
+				LibError(std::runtime_error("无法获取实例对象"));
+			}
+			isInit = true;
+		}
+
+		template<typename... Args>
+		inline void setCurl(_In_ const CURLoption option, _In_ Args&&... args)
+		{
+			if (!isInit)
+			{
+				return;
+			}
+			std::unique_lock<std::mutex> lock(mtx);
+			curl_easy_setopt(Handle, option, args...);
+		}
+
+		inline void setUrl(_In_ const std::string& url)
+		{
+			if (!isInit)
+			{
+				return;
+			}
+			std::unique_lock<std::mutex> lock(mtx);
+			curl_easy_setopt(Handle, CURLOPT_URL, url.c_str());
+		}
+
+		inline void setOperater(_In_ operater __operater)
+		{
+			if (!isInit)
+			{
+				return;
+			}
+			std::unique_lock<std::mutex> lock(mtx);
+			this->_operater = __operater;
+		}
+
+		_NODISCARD rapidjson::Document getJsonDomByRequest(_In_ operation method)
+		{
+			rapidjson::Document Dom;
+			if (!isInit)
+			{
+				return Dom;
+			}
+			std::string data = sendRequest(method);
+			Dom.Parse(data.c_str());
+			if (Dom.HasParseError())
+			{
+				LibError(std::runtime_error("无法解析DOM!"));
+			}
+			return Dom;
+		}
+
+		std::string sendRequest(_In_ operation method)
+		{
+			if (!isInit)
+			{
+				return std::string();
+			}
+			std::unique_lock<std::mutex> lock(mtx);
+			if (_operater != operater::Request)
+			{
+				LibError(std::bad_function_call());
+			}
+			std::string response;
+			curlCallBack callback = Infomation::curlResponseCallBack;
+			//curl_easy_setopt(Handle, CURLOPT_REFERER, "http://www.baidu.com");
+			curl_easy_setopt(Handle, CURLOPT_SSL_VERIFYPEER, false);
+			curl_easy_setopt(Handle, CURLOPT_SSL_VERIFYHOST, false);
+			curl_easy_setopt(Handle, CURLOPT_WRITEFUNCTION, callback);
+			curl_easy_setopt(Handle, CURLOPT_WRITEDATA, (void*)&response);
+			curl_easy_setopt(Handle, CURLOPT_FOLLOWLOCATION, 1);
+			if (method == operation::POST)
+			{
+				if (postfileds.empty())
+				{
+					LibError(std::runtime_error("如果要使用POST请求，字段必须附上"));
+				}
+				curl_easy_setopt(Handle, CURLOPT_POST, true);
+				std::string post = cloudgameZero::Foundation::Tool::gbkToUtf8(postfileds);
+				curl_easy_setopt(Handle, CURLOPT_POSTFIELDS, post);
+			}
+			curl_easy_setopt(Handle, CURLOPT_CONNECTTIMEOUT, 30);
+			curl_easy_setopt(Handle, CURLOPT_TIMEOUT, 30);
+			curl_easy_perform(Handle);
+			response = cloudgameZero::Foundation::Tool::function::utf8ToGbk(response);
+			return response;
+		}
+
+		CURLcode sendDownloadRequest(_In_ operation _operation, _In_ std::string filename, _In_opt_ bool cover = true)
+		{
+			if (!isInit)
+			{
+				return CURLcode::CURLE_NOT_BUILT_IN;
+			}
+			std::unique_lock<std::mutex> lock(mtx);
+			if (this->_operater != operater::Download)
+			{
+				/* 我们在此处判断函数设置的请求是不是Download */
+				LibError(std::bad_function_call());
+			}
+			namespace fs = std::filesystem;
+			std::fstream ref;
+			if (fs::exists(filename))
+			{
+				if (cover)
+				{
+					fs::remove(filename);
+					ref.open(filename, std::ios::binary | std::ios::out);
+					if (!ref.is_open())
+					{
+						LibError(std::runtime_error("无法创建文件"));
+					}
+				}
+				else
+				{
+					return CURLE_OBSOLETE44;
+				}
+			}
+			else
+			{
+				ref.open(filename, std::ios::binary | std::ios::out);
+				if (!ref.is_open())
+				{
+					LibError(std::runtime_error("无法创建文件"));
+				}
+			}
+			curlCallBack callback = Infomation::curlFileCallback;
+			curl_easy_setopt(Handle, CURLOPT_REFERER, "http://www.baidu.com");
+			curl_easy_setopt(Handle, CURLOPT_WRITEFUNCTION, callback);
+			curl_easy_setopt(Handle, CURLOPT_WRITEDATA, (void*)&ref);
+			if (_operation == operation::POST)
+			{
+				if (postfileds.empty())
+				{
+					LibError(std::runtime_error("如果要使用POST请求，字段必须附上"));
+				}
+				curl_easy_setopt(Handle, CURLOPT_POST, true);
+				curl_easy_setopt(Handle, CURLOPT_POSTFIELDS, postfileds.c_str());
+			}
+			curl_easy_setopt(Handle, CURLOPT_FOLLOWLOCATION, true);
+			curl_easy_setopt(Handle, CURLOPT_CONNECTTIMEOUT, 360);
+			curl_easy_setopt(Handle, CURLOPT_TIMEOUT, 360);
+			CURLcode code = curl_easy_perform(Handle);
+			if (enableProgress)
+			{
+				std::cout << "\n";
+			}
+			ref.close();
+			return code;
+		}
+
+		inline void showProgress()
+		{
+			if (!isInit)
+			{
+				return;
+			}
+			progressCallBack Callback = Infomation::progressCallback;
+			curl_easy_setopt(Handle, CURLOPT_NOPROGRESS, false);
+			curl_easy_setopt(Handle, CURLOPT_PROGRESSFUNCTION, Callback);
+			enableProgress = true;
+		}
+
+		inline void disableProgress()
+		{
+			if (!isInit)
+			{
+				return;
+			}
+			curl_easy_setopt(Handle, CURLOPT_NOPROGRESS, true);
+			curl_easy_setopt(Handle, CURLOPT_PROGRESSFUNCTION, nullptr);
+			enableProgress = false;
+		}
+
+		inline operator curl_handle_type()
+		{
+			std::unique_lock<std::mutex> lock(mtx);
+			return Handle;
+		}
+
+		inline curl_handle_type native_handle()
+		{
+			std::unique_lock<std::mutex> lock(mtx);
+			return Handle;
+		}
+
+		inline void cleanup()
+		{
+			std::unique_lock<std::mutex> lock(mtx);
+			if (Handle && isInit)
+			{
+				curl_easy_cleanup(Handle);
+			}
+			isInit = false;
+		}
+
+	private:
+		curl_handle_type Handle = nullptr;
+		operater _operater{};
+		std::string postfileds{};
+		std::mutex mtx;
+		bool isInit;
+		bool enableProgress;
+	};
+
 	template<class Type1, class Type2>
 	static constexpr bool isSameData(Type1&& one, Type2&& two)
 	{
@@ -7669,6 +6839,8 @@ namespace cloudgameZero
 			}
 			return vector;
 		}
+
+		using Curl = ::cloudgameZero::Curl;
 
 		static void copy(std::string_view from, std::string_view to)
 		{
@@ -7764,240 +6936,6 @@ namespace cloudgameZero
 			return list; //无轮如何都会被返回
 		}
 
-		class Curl
-		{
-		public:
-			using curl_handle_type = CURL*;
-			typedef size_t(CALLBACK* curlCallBack)(char* ptr, size_t size, size_t nmemb, void* stream);
-			typedef int(*progressCallBack)(void* clientp, double dltotal, double dlnow, double ultotal, double ulnow);
-
-			enum class operation
-			{
-				GET,
-				POST
-			};
-
-			enum class operater
-			{
-				Download,
-				Request
-			};
-
-			~Curl()
-			{
-				cleanup();
-			}
-
-			inline void init()
-			{
-				std::unique_lock<std::mutex> lock(mtx);
-				this->Handle = curl_easy_init();
-				if (!Handle)
-				{
-					LibError(std::runtime_error("无法获取实例对象"));
-				}
-				isInit = true;
-			}
-
-			template<typename... Args>
-			inline void setCurl(_In_ const CURLoption option,_In_ Args&&... args)
-			{
-				if (!isInit)
-				{
-					return;
-				}
-				std::unique_lock<std::mutex> lock(mtx);
-				curl_easy_setopt(Handle,option, args...);
-			}
-
-			inline void setUrl(_In_ const std::string& url)
-			{
-				if (!isInit)
-				{
-					return;
-				}
-				std::unique_lock<std::mutex> lock(mtx);
-				curl_easy_setopt(Handle, CURLOPT_URL, url.c_str());
-			}
-
-			inline void setOperater(_In_ operater __operater)
-			{
-				if (!isInit)
-				{
-					return;
-				}
-				std::unique_lock<std::mutex> lock(mtx);
-				this->_operater = __operater;
-			}
-
-			_NODISCARD rapidjson::Document getJsonDomByRequest(_In_ operation method)
-			{
-				rapidjson::Document Dom;
-				if (!isInit)
-				{
-					return Dom;
-				}
-				std::string data = sendRequest(method);
-				Dom.Parse(data.c_str());
-				if (Dom.HasParseError())
-				{
-					LibError(std::runtime_error("无法解析DOM!"));
-				}
-				return Dom;
-			}
-
-			std::string sendRequest(_In_ operation method)
-			{
-				if (!isInit)
-				{
-					return std::string();
-				}
-				std::unique_lock<std::mutex> lock(mtx);
-				if (_operater != operater::Request)
-				{
-					LibError(std::bad_function_call());
-				}
-				std::string response;
-				curlCallBack callback = Infomation::curlResponseCallBack;
-				//curl_easy_setopt(Handle, CURLOPT_REFERER, "http://www.baidu.com");
-				curl_easy_setopt(Handle, CURLOPT_SSL_VERIFYPEER, false);
-				curl_easy_setopt(Handle, CURLOPT_SSL_VERIFYHOST, false);
-				curl_easy_setopt(Handle, CURLOPT_WRITEFUNCTION, callback);
-				curl_easy_setopt(Handle, CURLOPT_WRITEDATA, (void*)&response);
-				curl_easy_setopt(Handle,CURLOPT_FOLLOWLOCATION, 1);
-				if (method == operation::POST)
-				{
-					if (postfileds.empty())
-					{
-						LibError(std::runtime_error("如果要使用POST请求，字段必须附上"));
-					}
-					curl_easy_setopt(Handle, CURLOPT_POST, true);
-					std::string post = cloudgameZero::Foundation::Tool::gbkToUtf8(postfileds);
-					curl_easy_setopt(Handle, CURLOPT_POSTFIELDS, post);
-				}
-				curl_easy_setopt(Handle, CURLOPT_CONNECTTIMEOUT, 30);
-				curl_easy_setopt(Handle, CURLOPT_TIMEOUT, 30);
-				curl_easy_perform(Handle);
-				response = cloudgameZero::Foundation::Tool::function::utf8ToGbk(response);
-				return response;
-			}
-
-			CURLcode sendDownloadRequest(_In_ operation _operation,_In_ std::string filename,_In_opt_ bool cover = true)
-			{
-				if (!isInit)
-				{
-					return CURLcode::CURLE_NOT_BUILT_IN;
-				}
-				std::unique_lock<std::mutex> lock(mtx);
-				if (this->_operater != operater::Download)
-				{
-					/* 我们在此处判断函数设置的请求是不是Download */
-					LibError(std::bad_function_call());
-				}
-				namespace fs = std::filesystem;
-				std::fstream ref;
-				if (fs::exists(filename))
-				{
-					if (cover)
-					{
-						fs::remove(filename);
-						ref.open(filename, std::ios::binary | std::ios::out);
-						if (!ref.is_open())
-						{
-							LibError(std::runtime_error("无法创建文件"));
-						}
-					}
-					else
-					{
-						return CURLE_OBSOLETE44;
-					}
-				}
-				else
-				{
-					ref.open(filename, std::ios::binary | std::ios::out);
-					if (!ref.is_open())
-					{
-						LibError(std::runtime_error("无法创建文件"));
-					}
-				}
-				curlCallBack callback = Infomation::curlFileCallback;
-				curl_easy_setopt(Handle, CURLOPT_REFERER, "http://www.baidu.com");
-				curl_easy_setopt(Handle, CURLOPT_WRITEFUNCTION, callback);
-				curl_easy_setopt(Handle, CURLOPT_WRITEDATA, (void*)&ref);
-				if (_operation == operation::POST)
-				{
-					if (postfileds.empty())
-					{
-						LibError(std::runtime_error("如果要使用POST请求，字段必须附上"));
-					}
-					curl_easy_setopt(Handle, CURLOPT_POST, true);
-					curl_easy_setopt(Handle, CURLOPT_POSTFIELDS, postfileds.c_str());
-				}
-				curl_easy_setopt(Handle, CURLOPT_FOLLOWLOCATION, true);
-				curl_easy_setopt(Handle, CURLOPT_CONNECTTIMEOUT, 360);
-				curl_easy_setopt(Handle, CURLOPT_TIMEOUT, 360);
-				CURLcode code = curl_easy_perform(Handle);
-				if (enableProgress)
-				{
-					std::cout << "\n";
-				}
-				ref.close();
-				return code;
-			}
-
-			inline void showProgress()
-			{
-				if (!isInit)
-				{
-					return;
-				}
-				progressCallBack Callback = Infomation::progressCallback;
-				curl_easy_setopt(Handle,CURLOPT_NOPROGRESS, false);
-				curl_easy_setopt(Handle,CURLOPT_PROGRESSFUNCTION, Callback);
-				enableProgress = true;
-			}
-
-			inline void disableProgress()
-			{
-				if (!isInit)
-				{
-					return;
-				}
-				curl_easy_setopt(Handle, CURLOPT_NOPROGRESS, true);
-				curl_easy_setopt(Handle, CURLOPT_PROGRESSFUNCTION, nullptr);
-				enableProgress = false;
-			}
-
-			inline operator curl_handle_type()
-			{
-				std::unique_lock<std::mutex> lock(mtx);
-				return Handle;
-			}
-
-			inline curl_handle_type native_handle()
-			{
-				std::unique_lock<std::mutex> lock(mtx);
-				return Handle;
-			}
-
-			inline void cleanup()
-			{
-				std::unique_lock<std::mutex> lock(mtx);
-				if (Handle && isInit)
-				{
-					curl_easy_cleanup(Handle);
-				}
-				isInit = false;
-			}
-
-		private:
-			curl_handle_type Handle = nullptr;
-			operater _operater{};
-			std::string postfileds{};
-			std::mutex mtx;
-			bool isInit;
-			bool enableProgress;
-		};
 
 		namespace json
 		{
@@ -8176,7 +7114,7 @@ namespace cloudgameZero
 				{
 					if (type == J_list)
 					{
-						auto list = getArray();
+						auto& list = getArray();
 						list.push_back(std::move(item));
 						return;
 					}
@@ -8333,14 +7271,10 @@ namespace cloudgameZero
 							//查看下一行是否还是注释
 							idx = next_pos + 1;
 							while (isspace(str[idx]))
-							{
 								idx++;
-							}
 							if (str.compare(idx, 2, R"(//)") != 0)
-							{ 
 								//结束注释
 								return;
-							}
 						}
 					}
 				}
@@ -8349,1080 +7283,12 @@ namespace cloudgameZero
 				size_t idx;
 			};
 		}
-
-		namespace log
-		{
-			template<typename type>
-			concept string = std::is_same_v<type, char> || std::is_same_v<type, wchar_t>;
-
-			template<string type>
-			struct msg
-			{
-				constexpr msg() noexcept = default;
-				constexpr msg(msg&& other) noexcept = default;
-				constexpr msg(Infomation::level level, std::basic_string_view<type> msg) : level(level), _msg(msg)
-				{
-				}
-				Infomation::level level{};
-				std::basic_string_view<type> _msg{};
-				std::basic_string<type> buffer{};
-			};
-
-			template<string type>
-			class zeroLogT
-			{
-			public:
-				static inline zeroLogT<type>* getNoInitLogger(_In_opt_ std::string_view profile = "logConfig.json")
-				{
-					return new zeroLogT<type>(false, profile);
-				}
-
-				static inline zeroLogT<type>* getNoInitLogger(_In_ std::string_view mark, _In_ std::string_view server, _In_opt_ std::string_view profile = "logConfig.json")
-				{
-					return new zeroLogT<type>(false, mark, nullptr, server, profile);
-				}
-
-				static inline zeroLogT<type>* getLogger(_In_opt_ std::string_view profile = "logConfig.json")
-				{
-					return new zeroLogT<type>(true, profile);
-				}
-
-				static inline zeroLogT<type>* getLogger(_In_ std::string_view mark, _In_ std::string_view server, _In_opt_ std::string_view profile = "logConfig.json")
-				{
-					return new zeroLogT<type>(true, mark, nullptr, server, profile);
-				}
-
-				static inline zeroLogT<type>* getLogger(
-					_In_ std::string_view profile,
-					_In_ std::string_view mark,
-					_In_ std::string_view server,
-					_In_opt_ delegate<void, rapidjson::Document&> CallBack = nullptr
-				)
-				{
-					return new zeroLogT<type>(true, profile, CallBack, mark, server);
-				}
-
-				using message = msg<type>;
-
-
-				/**
-				 * Each log class object is a unique instance, so the empty argument and copy constructs and assignment operators will not be provided to the user.
-				 */
-				zeroLogT() = delete;
-				zeroLogT& operator=(zeroLogT<type>& other) = delete;
-				zeroLogT(zeroLogT<type>& other) = delete;
-
-				~zeroLogT()
-				{
-					this->close();
-				}
-
-				void init()
-				{
-					using namespace Foundation;
-					using namespace Foundation::Tool;
-					rapidjson::Document& Dom = conf->getDocment();
-					if (this->hasInit())
-					{
-						DEBUG_MESSAGE("这个实例已经被初始化过了");
-						return;
-					}
-					if (!Dom["logToFile"]["Enable"].GetBool() && !Dom["logToFile"]["Enable"].GetBool())
-					{
-						DEBUG_MESSAGE("为什么你要在两者都不启用的情况下进行初始化，请问这是否是有意而为之?");
-						return;
-					}
-					if (Dom["logToFile"]["Enable"].GetBool())
-					{
-						do {
-							if (fs == nullptr)
-							{
-								fs = new std::fstream;
-							}
-							if (fs->is_open())
-							{
-								break;
-							}
-							std::string dict;
-							if (this->file.empty())
-							{
-								conf->getLogDictionary(dict);
-								if (!std::filesystem::exists(dict))
-								{
-									std::filesystem::create_directories(dict);
-								}
-								std::string filename = conf->parseFileName();
-								dict += filename;
-							}
-							else
-							{
-								dict = this->file;
-							}
-							if (Dom["logToFile"]["append"].GetBool())
-							{
-								fs->open(dict, std::ios::app);
-							}
-							else
-							{
-								fs->open(dict, std::ios::out);
-							}
-							if (!fs->is_open())
-							{
-								throw std::runtime_error("无法打开文件，出现了异常");
-							}
-							this->file = dict;
-							this->EnableFileOut = true;
-						} while (false);
-					}
-					if (Dom["outToTerminal"]["Enable"].GetBool())
-					{
-						DEBUG_MESSAGE("准备获取ostream对象");
-						switch (conf->getLogObjectType())
-						{
-						case logConfig::_ostream::clog:
-						{
-							this->object = &std::clog;
-							break;
-						}
-						case logConfig::_ostream::cout:
-						{
-							this->object = &std::cout;
-							break;
-						}
-						case logConfig::_ostream::cerr:
-						{
-							this->object = &std::cerr;
-							break;
-						}
-						default:
-						{
-							LibError(std::runtime_error("无法获取对象"));
-						}
-						}
-						DEBUG_MESSAGE("准备获取wostream对象");
-						switch (conf->getWideOstreamType())
-						{
-						case logConfig::_wostream::wclog:
-						{
-							this->wobject = &std::wclog;
-							break;
-						}
-						case logConfig::_wostream::wcout:
-						{
-							this->wobject = &std::wcout;
-							break;
-						}
-						case logConfig::_wostream::wcerr:
-						{
-							this->wobject = &std::wcerr;
-							break;
-						}
-						default:
-						{
-							LibError(std::runtime_error("无法获取对象"));
-						}
-						}
-						wobject->imbue(Infomation::chs);
-						this->EnableTerminalOut = true;
-					}
-					this->logTimeFormat = Dom["logFormatTime"].GetString();
-					this->render = Dom["outToTerminal"]["render"].GetBool();
-					this->cleanBuffer = Dom["outToTerminal"]["rootLogger"]["cleanBuffer"]["clean"].GetBool();
-					this->times = Dom["outToTerminal"]["rootLogger"]["cleanBuffer"]["times"].GetUint();
-					this->showUser = Dom["outToTerminal"]["showUser"].GetBool();
-					this->EnableThreadSecurity = Dom["EnableThreadSecurity"].GetBool();
-					this->has_init = true;
-				}
-
-				inline const bool hasInit() noexcept
-				{
-					return this->has_init;
-				}
-
-				/*=================================================================
-				日志类提供了6个等级的成员函数用于记录日志
-				每个等级拥有2个可变参数模板和2个普通成员函数
-				用于处理std::string和std::wstring数据类型
-				模板函数用于通过std::format处理格式化字符串
-				注：
-				logConfig的等级代表最小记录等级，例如等级如果为Trace，则所有等级日志都可见
-				但如果等级为Info，则Trace和Debug将不会被记录，而只是被临时存储到list容器
-				如果编译为Debug模式，库将会生成一个最低记录等级为Trace的配置文件，反之为Info
-				==================================================================*/
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Trace的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void trace(const std::basic_string_view<type> message) throw()
-				{
-					using namespace Infomation;
-					static level lev = Trace;
-					//Here we enable thread locks to prevent resource contention issues
-					std::unique_lock<std::mutex> lock(this->mutex);
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					//Here we generate a log and forward it to the write method to print out the log messages
-					auto logs = this->makeLogs(lev, message.data());
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 格式化日志消息并打印等级为Trace的日志
-				 *
-				 * \param fmt 要格式化的内容
-				 * \param ...args 要格式化的参数
-				 */
-				template<typename... Args>
-				void trace(const std::basic_string_view<type> fmt, Args... args) throw()
-				{
-					using namespace Infomation;
-					static level lev = Trace;
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					std::unique_lock<std::mutex> lock(this->mutex);
-					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
-					auto alraedy = Infomation::makeFormat(fmt, args...);
-					auto logs = this->makeLogs(lev, alraedy);
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为debug的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void debug(const std::basic_string_view<type> message) throw()
-				{
-					using namespace Infomation;
-					static level lev = Debug;
-					//Here we enable thread locks to prevent resource contention issues
-					std::unique_lock<std::mutex> lock(this->mutex);
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					//Here we generate a log and forward it to the write method to print out the log messages
-					auto logs = this->makeLogs(lev, message.data());
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 格式化日志消息并打印等级为debug的日志
-				 *
-				 * \param fmt 要格式化的内容
-				 * \param ...args 要格式化的参数
-				 */
-				template<typename... Args>
-				void debug(const std::basic_string_view<type> fmt, Args... args) throw()
-				{
-					using namespace Infomation;
-					static level lev = Debug;
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					std::unique_lock<std::mutex> lock(this->mutex);
-					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
-					auto alraedy = Infomation::makeFormat(fmt, args...);
-					auto logs = this->makeLogs(lev, alraedy);
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Info的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void info(const std::basic_string_view<type> message) throw()
-				{
-					using namespace Infomation;
-					static level lev = Info;
-					//Here we enable thread locks to prevent resource contention issues
-					std::unique_lock<std::mutex> lock(this->mutex);
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					//Here we generate a log and forward it to the write method to print out the log messages
-					auto logs = this->makeLogs(lev, message.data());
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 格式化日志消息并打印等级为Info的日志
-				 *
-				 * \param fmt 要格式化的内容
-				 * \param ...args 要格式化的参数
-				 */
-				template<typename... Args>
-				void info(const std::basic_string_view<type> fmt, Args... args) throw()
-				{
-					using namespace Infomation;
-					static level lev = Info;
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					std::unique_lock<std::mutex> lock(this->mutex);
-					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
-					auto alraedy = Infomation::makeFormat(fmt, args...);
-					auto logs = this->makeLogs(lev, alraedy);
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Warn的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void warn(const std::basic_string_view<type> message) throw()
-				{
-					using namespace Infomation;
-					static level lev = Warn;
-					//Here we enable thread locks to prevent resource contention issues
-					std::unique_lock<std::mutex> lock(this->mutex);
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					//Here we generate a log and forward it to the write method to print out the log messages
-					auto logs = this->makeLogs(lev, message.data());
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 格式化日志消息并打印等级为Warn的日志
-				 *
-				 * \param fmt 要格式化的内容
-				 * \param ...args 要格式化的参数
-				 */
-				template<typename... Args>
-				void warn(const std::basic_string_view<type> fmt, Args... args) throw()
-				{
-					using namespace Infomation;
-					static level lev = Warn;
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					std::unique_lock<std::mutex> lock(this->mutex);
-					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
-					auto alraedy = Infomation::makeFormat(fmt, args...);
-					auto logs = this->makeLogs(lev, alraedy);
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Error的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void error(const std::basic_string_view<type> message) throw()
-				{
-					using namespace Infomation;
-					static level lev = Infomation::Error;
-					//Here we enable thread locks to prevent resource contention issues
-					std::unique_lock<std::mutex> lock(this->mutex);
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					//Here we generate a log and forward it to the write method to print out the log messages
-					auto logs = this->makeLogs(lev, message.data());
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 格式化日志消息并打印等级为Error的日志
-				 *
-				 * \param fmt 要格式化的内容
-				 * \param ...args 要格式化的参数
-				 */
-				template<typename... Args>
-				void error(const std::basic_string_view<type> fmt, Args... args) throw()
-				{
-					using namespace Infomation;
-					static level lev = Infomation::Error;
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					std::unique_lock<std::mutex> lock(this->mutex);
-					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
-					auto alraedy = Infomation::makeFormat(fmt, args...);
-					auto logs = this->makeLogs(lev, alraedy);
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 打印等级为Fatal的日志
-				 *
-				 * \param message 消息内容
-				 */
-				void fatal(const std::basic_string_view<type> message) throw()
-				{
-					using namespace Infomation;
-					static level lev = Fatal;
-					//Here we enable thread locks to prevent resource contention issues
-					std::unique_lock<std::mutex> lock(this->mutex);
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					//Here we generate a log and forward it to the write method to print out the log messages
-					auto logs = this->makeLogs(lev, message.data());
-					this->write(lev, logs);
-				}
-
-				/**
-				 * \brief 此内容写于2023/8/13.
-				 * \brief 格式化日志消息并打印等级为Fatal的日志
-				 *
-				 * \param fmt 要格式化的内容
-				 * \param ...args 要格式化的参数
-				 */
-				template<typename... Args>
-				void fatal(const std::basic_string_view<type> fmt, Args... args) throw()
-				{
-					using namespace Infomation;
-					static level lev = Fatal;
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					std::unique_lock<std::mutex> lock(this->mutex);
-					//Here we make a format strings then generate a log and forward it to the write method to print out the log messages
-					auto alraedy = Infomation::makeFormat(fmt, args...);
-					auto logs = this->makeLogs(lev, alraedy);
-					this->write(lev, logs);
-				}
-
-				static friend inline zeroLogT<type>& operator<<(zeroLogT<type>& object, const message&& msg) throw()
-				{
-					using namespace Infomation;
-					//Here we enable thread locks to prevent resource contention issues
-					std::unique_lock<std::mutex> lock(this->mutex);
-					if (!object.hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						object.init();
-					}
-					/* Create a temporary variable to accept log information returned from makeLogs in the zeroLogT<type> instance object */
-					std::basic_string<type> logs;
-					if (msg.level == Reserved)
-					{
-						//For Reserved, we treat it as Info, because Reserved has no value and is used only to filter log messages
-						logs = this->makeLogs(Info, msg._msg.data());
-					}
-					else
-					{
-						logs = this->makeLogs(msg.level, msg._msg.data());
-					}
-					object.write(msg.level == Reserved ? Info : msg.level, logs);
-					//Here we call the write method in the instance object of zeroLogT<type>. At the log level, we use a ternary expression to process Reserved information and then write out the log information
-					return object; //Finally, we return a reference to the object
-				}
-
-				static friend inline zeroLogT<type>& operator>>(zeroLogT<type>& object, msg<type>& msg) throw()
-				{
-					using namespace Infomation;
-					//Here we enable thread locks to prevent resource contention issues
-					std::unique_lock<std::mutex> lock(this->mutex);
-					if (!object.hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						object.init();
-					}
-					if (msg.level == Reserved)
-					{
-						//For Reserved, we treat it as Info, because Reserved has no value and is used only to filter log messages
-						msg.buffer = object.makeLogs(Info, msg._msg.data());
-					}
-					else
-					{
-						msg.buffer = object.makeLogs(msg.level, msg._msg.data());
-						//When we get the log information, we directly assign it to the msg buffer
-					}
-					return object; //Finally, we return a reference to the object
-				}
-
-				void stackTrace()
-				{
-					using namespace Infomation;
-					using namespace Foundation::Tool;
-					//Here we enable thread locks to prevent resource contention issues
-					std::unique_lock<std::mutex> lock(this->mutex);
-					if (!this->hasInit())
-					{
-						//We check if the object is initialized, and if not, we initialize it for it
-						this->init();
-					}
-					std::string logs = this->makeLogs(Warn, std::format("\nHere Is The StackTrace's Content: \n{}", boost::stacktrace::to_string(boost::stacktrace::stacktrace())));
-					this->write(Warn, logs);
-				}
-
-				inline void close()
-				{
-					if (!this->hasInit())
-					{
-						return;
-					}
-					wobject->imbue(Infomation::_Clocale);
-					this->wobject = nullptr;
-					this->has_init = false;
-					fs = nullptr;
-					auto it = Infomation::regMark.find(mark.data());
-					/* 我们这里要做取消注册的工作 */
-					if (it != Infomation::regMark.end())
-					{
-						it->second.erase(server.data());
-					}
-				}
-
-			protected:
-
-				/**
-				 * \brief 此部分写于2023/8/12
-				 * \brief 日志类构造函数.
-				 *
-				 * \param init 决定是否在构造期间初始化
-				 * \param file 决定日志使用的配置文件名
-				 * \param CallBack 可选，如果希望在运行阶段修改配置，此处应提供一个函数用于回调，它将以引用方式进行传递，如果不希望使用请指定其为nullptr
-				 * \param 委托原型： typedef void(__stdcall* logConfCallBackFunc)(rapidjson::Document& Dom);
-				 * \param mark 用于标记日志来源（可选，表示输出的来源）
-				 * \param server 用于标记模块（可选，表示模块名）
-				 */
-				explicit zeroLogT(
-					_In_ bool init,
-					_In_opt_ std::string_view profile = "logConfig.json",
-					_In_opt_ delegate<void, rapidjson::Document&> CallBack = nullptr,
-					_In_opt_ std::string_view mark = "main",
-					_In_opt_ std::string_view server = "ZERO"
-				) : times(NULL), mark(mark), server(server), fs(Infomation::logFileStream), time(NULL)
-				{
-					EventBus bus;
-					auto mainKey = Infomation::regMark.find(mark.data());
-					if (mainKey == Infomation::regMark.end())
-					{
-						Infomation::regMark.insert({ mark.data(),{server.data()}});
-					}
-					else
-					{
-						auto it = mainKey->second.find(server.data());
-						if (it != mainKey->second.end())
-						{
-							PrintError("无法注册对象，因为每个模块是独立的，除非拿到那个模块名称的日志对象被关闭或者被析构!");
-							bus.post("registry_object_failed");
-							return;
-						}
-						mainKey->second.insert(server.data());
-					}
-					if (!Infomation::logSession)
-					{
-						startLoggerSession();
-					}
-					conf = std::make_unique<Foundation::logConfig>();
-					if (!std::filesystem::exists(profile))
-					{
-						DEBUG_MESSAGE("未找到配置文件\n准备生成一个默认配置");
-						conf->InitConfig(profile.data());
-						if (CallBack)
-						{
-							CallBack(conf->getDocment());
-						}
-					}
-					conf->InitConfig(profile.data());
-					if (CallBack)
-					{
-						CallBack(conf->getDocment());
-					}
-					conf->saveSettings(profile);
-					this->minLevel = conf->getMin();
-					if (init)
-					{
-						this->init();
-					}
-				}
-
-			private:
-				inline static void renderTerminal(Infomation::level levels)
-				{
-					using namespace Infomation;
-					using CONSOLE = Foundation::Tool::CONSOLE;
-					switch (levels)
-					{
-					case level::Trace:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_BLUE | (WORD)CONSOLE::CONSOLE_COLOR_GREEN);
-						break;
-					case level::Info:
-						break;
-					case level::Debug:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_GREEN);
-						break;
-					case level::Warn:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_YELLOW);
-						break;
-					case level::Error:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_LIGHTRED);
-						break;
-					case level::Fatal:
-						SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)CONSOLE::CONSOLE_COLOR_RED);
-						break;
-					}
-				}
-
-				inline std::basic_string<type> makeLogs(Infomation::level report, std::basic_string<type> already)
-				{
-					using namespace Infomation;
-					using namespace Foundation::Tool;
-					using namespace Foundation::Tool::function;
-					if constexpr (std::is_same_v<type, char>)
-					{
-						std::basic_string<type> logs = "{} [{}/{}]: {} {} {}"_zF(
-							makeTimeStr(this->logTimeFormat),
-							this->mark.data(),
-							getMappingIndex(report),
-							strcmp(this->mark.data(), "main") ? std::format("[{}]", this->server) : "",
-							this->showUser ? Foundation::Tool::function::GetUserA() : "",
-							already
-						);
-						return logs;
-					}
-					else if constexpr (std::is_same_v<type, wchar_t>)
-					{
-						std::basic_string<type> logs = L"{} [{}/{}]: {} {} {}"_zWF(
-							MutiToWide(makeTimeStr(this->logTimeFormat)),
-							MutiToWide(this->mark.data()),
-							MutiToWide(getMappingIndex(report)),
-							MutiToWide(strcmp(this->mark.data(), "main") ? std::format("[{}]", this->server) : ""),
-							this->showUser ? Foundation::Tool::function::GetUserW() : L"",
-							already
-						);
-						return logs;
-					}
-				}
-
-				inline LPCSTR getMappingIndex(Infomation::level report)
-				{
-					using namespace Infomation;
-					switch (report)
-					{
-					case level::Trace:
-						return "TRACE";
-					case level::Info:
-						return "INFO";
-					case level::Debug:
-						return "DEBUG";
-					case level::Warn:
-						return "WARN";
-					case level::Error:
-						return "ERROR";
-					case level::Fatal:
-						return "FATAL";
-					}
-					return "\0";
-				}
-
-				inline void write(Infomation::level report, std::basic_string<type> logs)
-				{
-					// Check if the specified log level meets the minimum log level requirement.
-					using namespace Infomation;
-					if (this->minLevel > report)
-					{
-						return;// If not, do not log the message and exit the function.
-					}
-					// If terminal output is enabled, process the log message for terminal output.
-					if (this->EnableTerminalOut)
-					{
-						// If rendering is required, call the 'renderTerminal' function.
-						if (this->render)
-						{
-							renderTerminal(report);
-						}
-						// Write the log message to the terminal stream, depending on the character type.
-						if constexpr (std::is_same_v<type, char>)
-						{
-							/* Due to the lack of support for inserting std::string in wostream, the c_str method is called here for output. */
-							(*object) << logs;
-						}
-						else
-						{
-							/* wchar t doesn't need to be processed, so just output it */
-							(*wobject) << logs;
-						}
-						// Control message separation in terminal output based on 'cleanBuffer' and 'times'.
-						if (cleanBuffer && time < times)
-						{
-							wobject->put(L'\n');
-							// If we don't need the actual number of cleanups to be less than the set number of cleanups, we just wrap the lines
-							time++;
-						}
-						else if (cleanBuffer && time >= times)
-						{
-							// Simply clean up with std::endl, then reset it
-							(*wobject) << std::endl;
-							time = 0;
-						}
-						else
-						{
-							wobject->put(L'\n');
-						}
-					}
-					SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)Foundation::Tool::CONSOLE::CONSOLE_COLOR_WHITE);
-					if (this->EnableFileOut)
-					{
-						if constexpr (std::is_same_v<type, char>)
-						{
-							(*fs) << logs << "\n";
-						}
-						else if constexpr (std::is_same_v<type, wchar_t>)
-						{
-							(*fs) << WideToMuti(logs) << "\n";
-						}
-					}
-				}
-
-				int time;
-				int minLevel;
-				int times;
-				bool render;
-				bool has_init;
-				bool EnableFileOut;
-				bool EnableTerminalOut;
-				bool cleanBuffer;
-				bool showUser;
-				bool EnableThreadSecurity;
-				std::mutex mutex;
-				std::string logTimeFormat;
-				std::unique_ptr<Foundation::logConfig> conf;
-				std::ostream* object = nullptr;
-				std::wostream* wobject = nullptr;
-				std::fstream* fs;
-				std::string_view file;
-				std::string_view mark;
-				std::string_view server;
-			};
-
-			using zeroLogA = zeroLogT<char>;
-			using zeroLogW = zeroLogT<wchar_t>;
-			using msgA = zeroLogA::message;
-			using msgW = zeroLogW::message;
-
-		}
-
-		namespace window
-		{
-			static inline HDC getDevive(_In_opt_ HWND wnd)
-			{
-				return GetDC(wnd);
-			}
-
-			static inline HDC createCompatibleDC(_In_opt_ HDC hdc)
-			{
-				return CreateCompatibleDC(hdc);
-			}
-
-			static inline BOOL deleteDC(_In_ HDC hdc)
-			{
-				return DeleteDC(hdc);
-			}
-
-			class Window
-			{
-			public:
-				~Window()
-				{
-					thread.request_stop();
-				}
-
-				void create()
-				{
-					CLASS.cbSize = sizeof(WNDCLASSEXW);
-					CLASS.hInstance = Instance;
-					CLASS.lpfnWndProc = callback;
-					if (RegisterClassExW(&CLASS) == NULL)
-					{
-						PrintError("无法注册");
-						return;
-					}
-					hwnd = CreateWindowExW(
-						NULL,
-						className.c_str(),
-						title.empty() ? L"Window" : title.c_str(),
-						WS_OVERLAPPEDWINDOW,
-						CW_USEDEFAULT,
-						CW_USEDEFAULT,
-						CW_USEDEFAULT,
-						CW_USEDEFAULT,
-						NULL,
-						NULL,
-						Instance,
-						NULL
-					);
-					if (!hwnd)
-					{
-						PrintError("无法创建窗口");
-						return;
-					}
-				}
-
-				void start()
-				{
-					if (!hwnd)
-					{
-						return;
-					}
-					MSG msg{};
-					ShowWindow(this->hwnd, SW_SHOW);
-					while (GetMessageW(&msg, 0, 0, 0))
-					{
-						DispatchMessageW(&msg);
-					}
-					return;
-				}
-
-				inline void startWithAsyhc() throw()
-				{
-					thread = std::jthread([this]()
-						{
-							create();
-							start();
-						});
-					std::this_thread::sleep_for(std::chrono::milliseconds(1));
-				}
-
-				inline void setTitle(std::wstring title) noexcept
-				{
-					this->title = std::move(title);
-				}
-
-				inline void setClassName(std::wstring className) noexcept
-				{
-					this->className = className;
-					CLASS.lpszClassName = className.c_str();
-				}
-
-				inline void setCallBack(WNDPROC callback) noexcept
-				{
-					this->callback = callback;
-				}
-
-				inline void setInstance(HINSTANCE Instance) noexcept
-				{
-					this->Instance = Instance;
-				}
-
-			private:
-				WNDPROC callback = nullptr;
-				WNDCLASSEXW CLASS = {};
-				std::wstring title;
-				std::wstring className;
-				HINSTANCE Instance{};
-				HWND hwnd{};
-				std::jthread thread;
-			};
-
-			class Pen
-			{
-			public:
-				static inline COLORREF generateRGB(_In_ BYTE red, _In_ BYTE green, _In_ BYTE blue) noexcept
-				{
-					return ((COLORREF)(((BYTE)(red) | ((WORD)((BYTE)(green)) << 8)) | (((DWORD)(BYTE)(blue)) << 16)));
-				}
-
-				Pen() noexcept = default;
-
-				Pen(_In_ int style, _In_ int width,_In_ COLORREF color) noexcept
-				{
-					create(style, width, color);
-				}
-
-				Pen(_In_ const LOGPEN* plpen)
-				{
-					createIndirect(plpen);
-				}
-
-				~Pen()
-				{
-					release();
-				}
-
-				inline bool create(_In_ int style,_In_ int width,_In_ COLORREF colors) noexcept
-				{
-					this->Handle = CreatePen(style,width,colors);
-					if (!Handle)
-					{
-						return false;
-					}
-					return true;
-				}
-
-				inline bool createIndirect(_In_ const LOGPEN* plpen) noexcept
-				{
-					this->Handle = CreatePenIndirect(plpen);
-					if (!Handle)
-					{
-						return false;
-					}
-					return true;
-				}
-
-				inline operator HPEN() noexcept
-				{
-					return native_handle();
-				}
-
-				inline HPEN native_handle() noexcept
-				{
-					return Handle;
-				}
-
-				void release()
-				{
-					if (Handle)
-					{
-						DeleteObject(Handle);
-					}
-				}
-
-			private:
-				HPEN Handle{};
-			};
-
-			class solidBrush
-			{
-			public:
-				solidBrush() noexcept = default;
-
-				solidBrush(_In_ COLORREF color)
-				{
-					create(color);
-				}
-
-				bool create(_In_ COLORREF color)
-				{
-					Handle = CreateSolidBrush(color);
-					if (!Handle)
-					{
-						return false;
-					}
-					return true;
-				}
-
-				inline operator HBRUSH() noexcept
-				{
-					return native_handle();
-				}
-
-				inline HBRUSH native_handle() noexcept
-				{
-					return Handle;
-				}
-
-				void release()
-				{
-					if (Handle)
-					{
-						DeleteObject(Handle);
-					}
-				}
-
-			private:
-				HBRUSH Handle{};
-			};
-
-			class bitMap
-			{
-			public:
-				bitMap() noexcept = default;
-
-				bool createIndirect(_In_ BITMAP* pdm)
-				{
-					Handle = CreateBitmapIndirect(pdm);
-					if (!Handle)
-					{
-						return false;
-					}
-					return true;
-				}
-
-				bool createCompatible(_In_ HDC hdc, _In_ int width, _In_ int height)
-				{
-					Handle = CreateCompatibleBitmap(hdc, width, height);
-					if (!Handle)
-					{
-						return false;
-					}
-					return true;
-				}
-
-				bool createDI(_In_ HDC hdc, _In_opt_ const BITMAPINFOHEADER* pbmih, _In_ DWORD flInit, _In_opt_ CONST VOID* pjBits, _In_opt_ CONST BITMAPINFO* pbmi, _In_ UINT iUsage)
-				{
-					Handle = CreateDIBitmap(hdc, pbmih, flInit, pjBits, pbmi, iUsage);
-					if (!Handle)
-					{
-						return false;
-					}
-					return true;
-				}
-
-				inline operator HBITMAP() noexcept
-				{
-					return native_handle();
-				}
-
-				inline HBITMAP native_handle() noexcept
-				{
-					return Handle;
-				}
-
-				void release()
-				{
-					if (Handle)
-					{
-						DeleteObject(Handle);
-					}
-				}
-			private:
-				HBITMAP Handle{};
-			};
-		}
 	}
 }
 
 namespace leanCloudgameZero 
 {
 	using cloudgameZero::Foundation::dynamincLibrayFunc::loadFunFromLib;
-	using cloudgameZero::Foundation::zeroLog;
 	using cloudgameZero::checkFileSha1;
 	using cloudgameZero::DEBUG_MESSAGE;
 	using namespace cloudgameZero::Infomation;
