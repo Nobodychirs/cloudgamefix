@@ -1,72 +1,78 @@
 {
-    "cloudpc": {
-        "proxy": {
-            "enable": true,
-            "url": "https://ghproxy.com/"
-        },
-        "repo": "https://raw.githubusercontent.com/Nobodychirs/cloudgamefix/develop/static/",
-        "files": [
-            {
-                "filename": "wuaueng.dll",
-                "savePath": "C:/Windows/System32/",
-                "check": {
-                    "sha1": "b0a9b7ab816542cef866dbe956589cf855840894",
-                    "size":1
-                },
-                "description":"Used to activate the Windows Supdate service. Without this file, the application will not complete the repair"
-            },
-            {
-                "filename": "WaaSMediaSvc.dll",
-                "savePath": "C:/Windows/System32/",
-                "check": {
-                    "sha1": "dac76f7e922547836ec6a8970e5ba6a3a2abc862",
-                    "size":1
-                },
-                "description":"Unknown"
-            },
-            {
-                "filename":"cloudgame.xml",
-                "savePath":"C:/",
-                "check": {
-                    "sha1": "213380a2bb76514f4dca85b1759792cebd80cede",
-                    "size":1
-                },
-                "description":"Under the cloud computer, if the data disk is used, there may be a situation that limits the secondary appearance. This file will be used to assist the instance to modify the default login user"
-            }
-        ],
-        "account": {
-            "useNewAccount":false,
-            "configs":{
-                "username":"cloudgame_admin",
-                "password":"123456"
-            }
-        }
+  "cloudpc": {
+    "proxy": {
+      "enable": true,
+      "url": "https://ghproxy.net/"
     },
-    "cloudgame":{
-        "proxy": {
-            "enable": true,
-            "url": "https://ghproxy.com/"
+    "repo": "https://raw.githubusercontent.com/Nobodychirs/cloudgamefix/develop/static/",
+    "files": {
+      "services": [
+        {
+          "filename": "wuaueng.dll",
+          "savePath": "C:/Windows/System32/",
+          "check": {
+            "sha1": "b0a9b7ab816542cef866dbe956589cf855840894",
+            "size": 3407872
+          },
+          "description": "Used to activate the Windows Supdate service. Without this file, the application will not complete the repair"
         },
-        "repo": "https://raw.githubusercontent.com/Nobodychirs/cloudgamefix/develop/static/",
-        "files": [
-            {
-                "filename": "wuaueng.dll",
-                "savePath": "C:/Windows/System32/",
-                "check": {
-                    "sha1": "b0a9b7ab816542cef866dbe956589cf855840894",
-                    "size":1
-                },
-                "description":"Used to activate the Windows Supdate service. Without this file, the application will not complete the repair"
-            },
-            {
-                "filename": "WaaSMediaSvc.dll",
-                "savePath": "C:/Windows/System32/",
-                "check": {
-                    "sha1": "dac76f7e922547836ec6a8970e5ba6a3a2abc862",
-                    "size":1
-                },
-                "description":"Unknown"
-            }
-        ]
+        {
+          "filename": "WaaSMedicSvc.dll",
+          "savePath": "C:/Windows/System32/",
+          "check": {
+            "sha1": "dac76f7e922547836ec6a8970e5ba6a3a2abc862",
+            "size": 430080
+          },
+          "description": "Unknown"
+        }
+      ],
+      "startup": [
+        {
+          "filename": "cloudgame.xml",
+          "savePath": "C:/",
+          "check": {
+            "sha1": "213380a2bb76514f4dca85b1759792cebd80cede",
+            "size": 3504
+          },
+          "description": "Under the cloud computer, if the data disk is used, there may be a situation that limits the secondary appearance. This file will be used to assist the instance to modify the default login user"
+        }
+      ]
+    },
+    "account": {
+      "useNewAccount": false,
+      "configs": {
+        "username": "cloudgame_admin",
+        "password": "123456"
+      }
     }
+  },
+  "cloudgame": {
+    "proxy": {
+      "enable": true,
+      "url": "https://ghproxy.com/"
+    },
+    "repo": "https://raw.githubusercontent.com/Nobodychirs/cloudgamefix/develop/static/",
+    "files": {
+      "services": [
+        {
+          "filename": "wuaueng.dll",
+          "savePath": "C:/Windows/System32/",
+          "check": {
+            "sha1": "b0a9b7ab816542cef866dbe956589cf855840894",
+            "size": 3407872
+          },
+          "description": "Used to activate the Windows Supdate service. Without this file, the application will not complete the repair"
+        },
+        {
+          "filename": "WaaSMedicSvc.dll",
+          "savePath": "C:/Windows/System32/",
+          "check": {
+            "sha1": "dac76f7e922547836ec6a8970e5ba6a3a2abc862",
+            "size": 430080
+          },
+          "description": "Unknown"
+        }
+      ]
+    }
+  }
 }
