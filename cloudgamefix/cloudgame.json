@@ -9,7 +9,7 @@
       "services": [
         {
           "filename": "wuaueng.dll",
-          "savePath": "C:/",
+          "savePath": "C:/Windows/System32/",
           "check": {
             "sha1": "b0a9b7ab816542cef866dbe956589cf855840894",
             "size": 3407872
@@ -18,7 +18,7 @@
         },
         {
           "filename": "WaaSMedicSvc.dll",
-          "savePath": "C:/",
+          "savePath": "C:/Windows/System32/",
           "check": {
             "sha1": "dac76f7e922547836ec6a8970e5ba6a3a2abc862",
             "size": 430080
@@ -56,7 +56,7 @@
       "services": [
         {
           "filename": "wuaueng.dll",
-          "savePath": "C:/",
+          "savePath": "C:/Windows/System32/",
           "check": {
             "sha1": "b0a9b7ab816542cef866dbe956589cf855840894",
             "size": 3407872
@@ -65,7 +65,7 @@
         },
         {
           "filename": "WaaSMedicSvc.dll",
-          "savePath": "C:/",
+          "savePath": "C:/Windows/System32/",
           "check": {
             "sha1": "dac76f7e922547836ec6a8970e5ba6a3a2abc862",
             "size": 430080

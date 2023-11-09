@@ -562,10 +562,8 @@ namespace cloudgameZero
 				if (t) {
 					i = static_cast<int>(d * 100.0 / t);
 				}
-				printf("Progress : [%-100s][%d%%]\r", bar, i);
-				bar[i] = '>';
+				printf("Download Progress -> %d%%\r", i);
 				i++;
-				bar[i] = 0;
 				return 0;
 			};
 		
@@ -2502,6 +2500,30 @@ namespace cloudgameZero
 					TerminateProcess(Handle, 0);
 					::CloseHandle(Handle);
 					return 1;
+				}
+
+				static void cleanConsoleBuffer(HANDLE hConsole)
+				{
+					CONSOLE_SCREEN_BUFFER_INFO csbi;
+					SMALL_RECT scrollRect;
+					COORD scrollTarget;
+					CHAR_INFO fill;
+					if (!GetConsoleScreenBufferInfo(hConsole, &csbi))
+					{
+						return;
+					}
+					scrollRect.Left = 0;
+					scrollRect.Top = 0;
+					scrollRect.Right = csbi.dwSize.X;
+					scrollRect.Bottom = csbi.dwSize.Y;
+					scrollTarget.X = 0;
+					scrollTarget.Y = (SHORT)(0 - csbi.dwSize.Y);
+					fill.Char.UnicodeChar = TEXT(' ');
+					fill.Attributes = csbi.wAttributes;
+					ScrollConsoleScreenBuffer(hConsole, &scrollRect, NULL, scrollTarget, &fill);
+					csbi.dwCursorPosition.X = 0;
+					csbi.dwCursorPosition.Y = 0;
+					SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
 				}
 
 				/**
@@ -6745,7 +6767,7 @@ namespace cloudgameZero
 			CURLcode code = curl_easy_perform(Handle);
 			if (enableProgress)
 			{
-				std::cout << "\n";
+				printf("\n");
 			}
 			ref.close();
 			return code;

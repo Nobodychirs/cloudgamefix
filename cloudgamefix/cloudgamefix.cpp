@@ -901,6 +901,7 @@ ULONG cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::Re
 		delete this;
 	else
 		return this->ref;
+	return 0;
 }
 
 cloudgameZero::Interface::sigmaInterface::Implement::__WinNotification::~__WinNotification()
