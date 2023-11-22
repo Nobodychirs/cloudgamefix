@@ -17,6 +17,14 @@
         "size": 517632
       },
       "remark": "curl file"
+    },
+    {
+      "name": "cloudgamefix.exe",
+      "check": {
+        "sha1": "91966917172a1e02aba9d336a514ab1b10ff71e3",
+        "size": 646656
+      },
+      "remark": "main program"
     }
   ]
 }

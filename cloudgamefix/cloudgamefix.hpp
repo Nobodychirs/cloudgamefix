@@ -457,6 +457,7 @@ namespace cloudgameZero
 #include <rapidjson/prettywriter.h>
 #pragma comment(lib, "user32")
 #pragma comment(lib, "shlwapi")
+#pragma comment(lib, "ws2_32")
 
 #ifndef CLOUDGAMEFIX_ASSERT
 #define CLOUDGAMEFIX_ASSERT(x) assert(x)

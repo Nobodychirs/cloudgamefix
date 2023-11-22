@@ -1,4 +1,5 @@
 #include"../cloudgamefix/cloudgamefix.hpp"
+#pragma comment(lib,"Crypt32")
 
 using namespace cloudgameZero;
 using namespace cloudgameZero::Foundation::Tool;
@@ -16,7 +17,7 @@ std::string_view moduleNameZLib = "zlib1.dll";
 
 namespace fs = std::filesystem;
 
-void download(rapidjson::Document& Dom,cloudgameZero::Foundation::zeroLog& object,std::string filename,std::string path)
+void download(rapidjson::Document& Dom,cloudgameZero::Foundation::zeroLogA& object,std::string filename,std::string path)
 {
 	Experiment::Curl curl;
 	object.info("开始下载文件：{}", filename);
@@ -31,7 +32,6 @@ void download(rapidjson::Document& Dom,cloudgameZero::Foundation::zeroLog& objec
 
 INT main(INT argc,CHAR** argv)
 {
-	PRESSANYBOTTON();
 	std::string proxy = "https://gitee.com/eGlhb2p1emk/cloudgamefix/raw/develop/static/";
 	if (argc > 1)
 	{
@@ -73,7 +73,7 @@ INT main(INT argc,CHAR** argv)
 	}
 	std::cout << "设置日志对象中..." << "\n";
 	std::string path, file;
-	cloudgameZero::Foundation::zeroLog object(true, "C:\\cloudgamefix\\updater.json", 
+	cloudgameZero::Foundation::zeroLogA object("C:\\cloudgamefix\\updater.json","UPDATER","MAIN",
 		[&path](rapidjson::Document& Dom) 
 		{
 			path = Dom["logToFile"]["Dictionary"].SetString("C:\\cloudgamefix").GetString();
