@@ -638,9 +638,4 @@ int main(int argc, CHAR** argv)
 		logger->fatal("在清理对象时可能发生非法内存问题！");
 		std::abort();
 	}
-	logger->info("完成清理!");
-	logger->info("准备释放日志对象...");
-	logger->close();
-	delete logger;
-	return 0;
 }
