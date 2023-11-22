@@ -1,6 +1,6 @@
 {
   "BuildVer": "0.1",
-  "repo": "https://gitee.com/eGlhb2p1emk/cloudgamefix/raw/develop/static/",
+  "repo": "https://ghproxy.net/https://raw.githubusercontent.com/Nobodychirs/cloudgamefix/develop/static/",
   "files": [
     {
       "name": "zlib1.dll",

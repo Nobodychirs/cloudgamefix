@@ -32,7 +32,7 @@ void download(rapidjson::Document& Dom,cloudgameZero::Foundation::zeroLogA& obje
 
 INT main(INT argc,CHAR** argv)
 {
-	std::string proxy = "https://gitee.com/eGlhb2p1emk/cloudgamefix/raw/develop/static/";
+	std::string proxy = "https://ghproxy.net/https://raw.githubusercontent.com/Nobodychirs/cloudgamefix/develop/static/";
 	if (argc > 1)
 	{
 		auto argList = Experiment::makeArgumentsView(argc,argv);
