@@ -123,7 +123,7 @@ CLOUDGAMEFIX_WARNING("If The Marco \"EnableZeroLibrayExceptions\" Not Enable,\
 /* Do not remove this row! */
 
 #ifndef __Has_dependent_libfile_cg
-#define __Has_dependent_libfile_cg __has_include("rapidjson/writer.h") && __has_include("boost/stacktrace.hpp")
+#define __Has_dependent_libfile_cg __has_include("rapidjson/writer.h") && __has_include("boost/stacktrace.hpp") && __has_include("curl/curl.h")
 #if __Has_dependent_libfile_cg
 #define __Result_cg true
 #else //__Has_dependent_libfile_cg
@@ -131,7 +131,7 @@ CLOUDGAMEFIX_WARNING("If The Marco \"EnableZeroLibrayExceptions\" Not Enable,\
 #endif //!__Has_dependent_libfile_cg
 #endif //__Has_dependent_libfile_cg
 
-static_assert(__Result_cg, "If You Want Compile This Libray,Please Install Dependent Libray: rapidjson & boost_stacktrace");
+static_assert(__Result_cg, "If You Want Compile This Libray,Please Install Dependent Libray: rapidjson & boost_stacktrace & libcurl");
 
 #if !__has_include("cloudgamefix.cpp")
 #ifndef __NO_CLODGAMEFIX_CPP_FILE
@@ -290,6 +290,7 @@ namespace cloudgameZero
 			{
 				if (ptr != nullptr)
 					delete ptr;
+				ptr = nullptr;
 			}
 
 		private:
@@ -524,10 +525,8 @@ namespace cloudgameZero
 		static const HKEY HKLM = ((HKEY)(ULONG_PTR)((LONG)0x80000002));
 		static const HKEY HKU  = ((HKEY)(ULONG_PTR)((LONG)0x80000003));
 		static const HKEY HKCC = ((HKEY)(ULONG_PTR)((LONG)0x80000005));
-		constexpr std::string_view author_Conf = "juzi xiao";
-		constexpr std::string_view version_Conf = "cloudgame-fix_zero 2.05 pre-build zero Private | The C++ Edition";
-		constexpr std::string_view __cg_Instance__ = "cloudgame-fix_zero 2.05 pre-build zero Private Instance : ";
-		constexpr std::string_view versionConf = "cloudgame-fix_zero 2.10 pre-build zero Private sigma | The C++ Edition";
+		constexpr std::string_view authorConf = "juzi xiao";
+		constexpr std::string_view versionConf = "cloudgamefix 2.10 release zero public sigma | The C++ Edition";
 		constexpr std::string_view _USER_cloudpc = "netease";
 		
 		//It is used to handle the basic security functions of the later library
@@ -579,13 +578,13 @@ namespace cloudgameZero
 		/* Used to create a default log profile */
 		constexpr std::string_view logconfig_json = R"(
 		{
-			"logFormatTime": "[%d-%02d-%02d %02d:%02d:%02d %03d]",
+			"logFormatTime": "[%Ec %A]",
 			"outToTerminal": {
 				"Enable": true,
 				"render": true,
 				"showUser": true,
 				"rootLogger": {
-					"level": "Trace",
+					"level": "trace",
 					"ostream": "std::clog",
 					"wostream": "std::wclog",
 					"cleanBuffer": {
@@ -604,7 +603,8 @@ namespace cloudgameZero
 				},
 				"append": false
 			},
-			"EnableThreadSecurity": true
+			"EnableThreadSecurity": true,
+			"Save":true
 		})";
 
 		template<typename T>
@@ -4342,7 +4342,6 @@ namespace cloudgameZero
 						std::stringstream stream;
 						stream << "\\" << std::put_time(&tms, format.c_str());
 						std::string time = stream.str();
-
 						this->filename = std::regex_replace(tmpfile, std::regex(R"(\$\{format\})"), time);
 					}
 					this->_isInit = true;
@@ -4613,8 +4612,7 @@ namespace cloudgameZero
 				rapidjson::StringBuffer sb;
 				rapidjson::PrettyWriter pw(sb);
 				Dom.Parse(Infomation::logconfig_json.data());
-				auto var = IS_DEBUG ? "Trace" : "Info";
-				Dom["outToTerminal"]["rootLogger"]["level"].SetString(var, IS_DEBUG ? sizeof("Trace") - 1 : sizeof("Info") - 1);
+				if(!IS_DEBUG) Dom["outToTerminal"]["rootLogger"]["level"].SetString("Info");
 				Dom.Accept(pw);
 				std::fstream f;
 				if (std::filesystem::exists(filename))
@@ -4755,10 +4753,12 @@ namespace cloudgameZero
 				_In_opt_ delegate<void, rapidjson::Document&> CallBack = nullptr
 			) : times(NULL), mark(mark), server(server), time(NULL)
 			{
+				fs.imbue(std::locale("chs"));
 				EventBus bus;
 				auto mainKey = Infomation::regMark.find(mark.data());
-				if (mainKey == Infomation::regMark.end())
+				if (mainKey == Infomation::regMark.end()) {
 					Infomation::regMark.insert({ mark.data(),{server.data()} });
+				}
 				else
 				{
 					auto it = mainKey->second.find(server.data());
@@ -4781,7 +4781,8 @@ namespace cloudgameZero
 				conf->InitConfig(profile.data());
 				if (CallBack)
 					CallBack(conf->getDocment());
-				conf->saveSettings(profile);
+				if(conf->getDocment()["Save"].GetBool())
+					conf->saveSettings(profile);
 				this->minLevel = conf->getMin();
 				init();
 			}
@@ -4819,8 +4820,6 @@ namespace cloudgameZero
 				if (Dom["logToFile"]["Enable"].GetBool())
 				{
 					do {
-						if (fs == nullptr)
-							fs = new std::fstream;
 						std::string dict;
 						if (this->file.empty())
 						{
@@ -4833,10 +4832,10 @@ namespace cloudgameZero
 						else
 							dict = this->file;
 						if (Dom["logToFile"]["append"].GetBool())
-							fs->open(dict, std::ios::app);
+							fs.open(dict, std::ios::app);
 						else
-							fs->open(dict, std::ios::out);
-						if (!fs->is_open())
+							fs.open(dict, std::ios::out);
+						if (!fs.is_open())
 							throw std::runtime_error("无法打开文件，出现了异常");
 						this->file = dict;
 						this->EnableFileOut = true;
@@ -4844,37 +4843,6 @@ namespace cloudgameZero
 				}
 				if (Dom["outToTerminal"]["Enable"].GetBool())
 				{
-					DEBUG_MESSAGE("准备获取ostream对象");
-					switch (conf->getLogObjectType())
-					{
-					case logConfig::_ostream::clog:
-						this->object = &std::clog;
-						break;
-					case logConfig::_ostream::cout:
-						this->object = &std::cout;
-						break;
-					case logConfig::_ostream::cerr:
-						this->object = &std::cerr;
-						break;
-					default:
-						LibError(std::runtime_error("无法获取对象"));
-					}
-					DEBUG_MESSAGE("准备获取wostream对象");
-					switch (conf->getWideOstreamType())
-					{
-					case logConfig::_wostream::wclog:
-						this->wobject = &std::wclog;
-						break;
-					case logConfig::_wostream::wcout:
-						this->wobject = &std::wcout;
-						break;
-					case logConfig::_wostream::wcerr:
-						this->wobject = &std::wcerr;
-						break;
-					default:
-						LibError(std::runtime_error("无法获取对象"));
-					}
-					wobject->imbue(Infomation::chs);
 					this->EnableTerminalOut = true;
 				}
 				this->logTimeFormat = Dom["logFormatTime"].GetString();
@@ -5208,13 +5176,7 @@ namespace cloudgameZero
 			{
 				if (!this->hasInit())
 					return;
-				wobject->imbue(Infomation::_Clocale);
-				this->wobject = nullptr;
 				this->has_init = false;
-				if (fs) {
-					delete fs;
-					fs = nullptr;
-				}
 				auto it = Infomation::regMark.find(mark.data());
 				/* 我们这里要做取消注册的工作 */
 				if (it != Infomation::regMark.end())
@@ -5314,32 +5276,34 @@ namespace cloudgameZero
 						renderTerminal(report);
 					// Write the log message to the terminal stream, depending on the character type.
 					if constexpr (std::is_same_v<type, char>)
-						/* Due to the lack of support for inserting std::string in wostream, the c_str method is called here for output. */
-						(*object) << logs;
+						std::cout << logs;
 					else
-						/* wchar t doesn't need to be processed, so just output it */
-						(*wobject) << logs;
+					{
+						std::locale old = std::wcout.imbue(Infomation::chs);
+						std::wcout << logs;
+						std::wcout.imbue(old);
+					}
 					// Control message separation in terminal output based on 'cleanBuffer' and 'times'.
 					if (cleanBuffer && time < times) {
-						wobject->put(L'\n');
+						std::wcout.put(L'\n');
 						// If we don't need the actual number of cleanups to be less than the set number of cleanups, we just wrap the lines
 						time++;
 					}
 					else if (cleanBuffer && time >= times) {
 						// Simply clean up with std::endl, then reset it
-						(*wobject) << std::endl;
+						std::wcout << std::endl;
 						time = 0;
 					}
 					else
-						wobject->put(L'\n');
+						std::wclog.put(L'\n');
 				}
 				SetConsoleTextAttribute(CONSOLE_OUTPUT_HANDLE, (WORD)Foundation::Tool::CONSOLE::CONSOLE_COLOR_WHITE);
 				if (this->EnableFileOut)
 				{
 					if constexpr (std::is_same_v<type, char>)
-						(*fs) << logs << "\n";
+						fs << Tool::MutiToWide(logs) << "\n";
 					else if constexpr (std::is_same_v<type, wchar_t>)
-						(*fs) << Foundation::Tool::WideToMuti(logs) << "\n";
+						fs << logs << "\n";
 				}
 			}
 
@@ -5356,9 +5320,7 @@ namespace cloudgameZero
 			std::mutex mutex;
 			std::string logTimeFormat;
 			std::unique_ptr<Foundation::logConfig> conf;
-			std::ostream* object = nullptr;
-			std::wostream* wobject = nullptr;
-			std::fstream* fs;
+			std::wfstream fs;
 			std::string_view file;
 			std::string_view mark;
 			std::string_view server;
@@ -5372,7 +5334,11 @@ namespace cloudgameZero
 
 	static inline Foundation::zeroLogA* CL(void)
 	{
-		static Foundation::zeroLogA INSTANCE("logConfig.json");
+		static Foundation::zeroLogA INSTANCE("cloudgame_comp.json", "helper", "ZERO", [](rapidjson::Document& Dom) 
+			{
+				Dom["logToFile"]["File"]["filename"].SetString("${format}cloudgamefix_comp.log");
+				Dom["Save"].SetBool(false);
+			});
 		return &INSTANCE;
 	}
 
@@ -6216,16 +6182,19 @@ namespace cloudgameZero
 				{
 					static cloudgameZero::Foundation::zeroLogW* ToastPlatformLog()
 					{
-						static cloudgameZero::Foundation::zeroLogW INSTANCE("logConfig.json","Main", "WinToastPlatform", 
+						static cloudgameZero::Foundation::zeroLogW INSTANCE("cloudgame_comp.json","Main", "WinToastPlatform", 
 							[](rapidjson::Document& Dom)
 							{
+								Dom["logToFile"]["File"]["filename"].SetString("cloudgame_comp_noti.log");
 								if (IS_DEBUG)
 								{
 									Dom["outToTerminal"]["render"].SetBool(false);
 									Dom["outToTerminal"]["rootLogger"]["level"].SetString("Info");
 								}
-								else
+								else {
 									Dom["outToTerminal"]["Enable"].SetBool(false);
+								}
+								Dom["Save"].SetBool(false);
 							});
 						return &INSTANCE;
 					}
