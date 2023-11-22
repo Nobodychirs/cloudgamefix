@@ -316,11 +316,11 @@ BOOL  __cgFix::fixSystemRestriction()
 			{
 				if (Reg.deleteKey(i.data()))
 				{
-					CL()->info("成功删除HKCU\\{}", i);
+					CL()->info("Success To Delete HKCU\\{}", i);
 				}
 				else
 				{
-					CL()->warn("在删除HKCU\\{}出现问题", i);
+					CL()->warn("Found Error In HKCU\\{}", i);
 					has_success = false;
 				}
 			}
@@ -466,7 +466,7 @@ void  __cgFix::fixFileExt(_In_ __cgFix::mode mode)
 					CL()->warn("无法修改HKLM\\{}",formatWindowsErrorMessage(*Data));
 				}
 			});
-		reg.setValue("EnableLUA", REG_DWORD, "1");
+		reg.setValue("EnableLUA", REG_DWORD, "0");
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 		break;
 	}
