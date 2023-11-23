@@ -20,10 +20,10 @@ namespace fs = std::filesystem;
 void download(rapidjson::Document& Dom,cloudgameZero::Foundation::zeroLogA& object,std::string filename,std::string path)
 {
 	Experiment::Curl curl;
-	object.info("开始下载文件：{}", filename);
 	std::string url = Dom["repo"].GetString() + filename;
 	object.info("设定url为： {}", url);
 	curl.init();
+	curl.showProgress();
 	curl.setUrl(url);
 	curl.setOperater(Experiment::Curl::operater::Download);
 	curl.sendDownloadRequest(Experiment::Curl::operation::GET, path, true);
@@ -32,7 +32,7 @@ void download(rapidjson::Document& Dom,cloudgameZero::Foundation::zeroLogA& obje
 
 INT main(INT argc,CHAR** argv)
 {
-	std::string proxy = "https://ghproxy.net/https://raw.githubusercontent.com/Nobodychirs/cloudgamefix/develop/static/";
+	std::string proxy = "https://gitee.com/eGlhb2p1emk/cloudgamefix/raw/develop/static/";
 	if (argc > 1)
 	{
 		auto argList = Experiment::makeArgumentsView(argc,argv);
@@ -98,35 +98,39 @@ INT main(INT argc,CHAR** argv)
 	auto array = Dom["files"].GetArray();
 	std::string filename,filepath;
 	object.info("开始检查资源，进行初始化...");
-	for(auto& i : array)
+	for (auto& i : array)
 	{
 		filename = i["name"].GetString();
 		filepath = std::format("{}{}", Dict, filename);
 		if (!fs::exists(filepath))
 		{
-			object.info("开始下载文件：{}",filename);
+			object.info("开始下载文件：{}", filename);
 			download(Dom, object, filename, filepath);
 		}
 		auto sha1 = getFileSha1(filepath);
 		auto file_get_size = i["check"]["size"].GetInt();
-		if (auto size = fs::file_size(filepath);size != file_get_size)
+		auto fileRealSize = fs::file_size(filepath);
+		object.info("开始比较Size: {} 与 {}", file_get_size, fileRealSize);
+		if (fileRealSize != file_get_size)
 		{
-			object.warn("文件：{}大小与实际不符合",filename);
+			object.warn("文件：{}大小与实际不符合", filename);
 			download(Dom, object, filename, filepath);
-			size = fs::file_size(filepath);
-			if (size != file_get_size)
+			fileRealSize = fs::file_size(filepath);
+			if (fileRealSize != file_get_size)
 			{
 				std::cout << "程序无法成功下载文件，请将此情况汇报给开发者" << "\n";
 				PRESSANYBOTTON();
 				return -1;
 			}
-			
+
 		}
-		if (std::string real = i["check"]["sha1"].GetString();real != sha1)
+		std::string realSha1 = i["check"]["sha1"].GetString();
+		object.info("开始比较Sha1 Hash : {} 与 {}", sha1, realSha1);
+		if (realSha1 != sha1)
 		{
 			object.warn("文件：{}校验得到的验证和不匹配!", filename);
 			download(Dom, object, filename, filepath);
-			if (real != sha1)
+			if (realSha1 != sha1)
 			{
 				std::cout << "程序无法成功下载文件，请将此情况汇报给开发者" << "\n";
 				PRESSANYBOTTON();
@@ -180,6 +184,12 @@ INT main(INT argc,CHAR** argv)
 			object.warn("无法设置路径");
 			break;
 		}
+		hr = link->SetWorkingDirectory(Dict.data());
+		if (FAILED(hr))
+		{
+			object.warn("无法设置工作目录");
+			break;
+		}
 		WCHAR _TargetPath[MAX_PATH];
 		ZeroMemory(TargetPath, MAX_PATH);
 		SHGetPathFromIDList(pitemIlist, _TargetPath);
@@ -202,7 +212,7 @@ INT main(INT argc,CHAR** argv)
 	} while (false);
 	object.info("完成安装");
 	object.info("开始拉起Client");
-	//ShellExecuteA(NULL, NULL, "{}{}"_zF(Dict,::filename).c_str(), NULL, NULL, SW_SHOW);
+	ShellExecuteA(NULL, NULL, "{}{}"_zF(Dict,::filename).c_str(), NULL, Dict.data(), SW_SHOW);
 	object.info("启动完成!");
 	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 	return 0;

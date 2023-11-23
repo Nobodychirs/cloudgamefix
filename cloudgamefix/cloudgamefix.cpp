@@ -186,9 +186,6 @@ namespace cloudgameZero {
 					extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolW = __uuidof(cgToolW);
 					extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IcgToolA_s = __uuidof(__cgToolA_s);
 					extern const IID IID_CLOUDGAME_FIX_ZERO_IID_IWinNotification = __uuidof(WinNotification);
-
-
-					//This function is normally called by the createInstance function, which takes a uuid and compares it to the corresponding IUnknown pointer
 				} // guid
 			} // Implement
 		} //sigmaInterface
