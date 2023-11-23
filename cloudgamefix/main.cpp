@@ -417,8 +417,23 @@ public:
 	Ty arr[size];
 };
 
+std::string getCpuInfo() noexcept
+{
+	int cpuInfo[4] = { -1 };
+	char cpu_freq[64] = { 0 };
+	__cpuid(cpuInfo, 0x80000002);
+	memcpy(cpu_freq, cpuInfo,sizeof(cpuInfo));
+	__cpuid(cpuInfo, 0x80000003);
+	memcpy(cpu_freq, cpuInfo, sizeof(cpuInfo));
+	__cpuid(cpuInfo, 0x80000004);
+	memcpy(cpu_freq, cpuInfo, sizeof(cpuInfo));
+	return cloudgameZero::format<char>("%s", cpu_freq);
+}
+
+
 int main(int argc, CHAR** argv)
 {
+	PRESSANYBOTTON();
 	std::cout << "准备初始化实例" << "\n";
 	/* Init Process Start */
 	std::cout << "正在调用：std::ios::sync_with_stdio(false);" << "\n";
