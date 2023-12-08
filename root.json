@@ -1,0 +1,34 @@
+{
+  "files":[
+    {
+      "filename": "antiminer.py",
+      "description": "反挖矿",
+      "date": "2023/12/2",
+      "extra": {
+        "hasAI": false,
+        "hasFinish": true,
+        "unknownUse": false
+      }
+    },
+    {
+      "filename": "bootstrap.py",
+      "description": "自启动",
+      "date": "2023/12/2",
+      "extra": {
+        "hasAI": true,
+        "hasFinish": true,
+        "unknownUse": false
+      }
+    },
+    {
+      "filename": "bootstrap_daemon.py",
+      "description": "由计划任务cloudgame触发",
+      "date": "2023/12/2",
+      "extra": {
+        "hasAI": false,
+        "hasFinish": true,
+        "unknownUse": false
+      }
+    }
+  ]
+}
